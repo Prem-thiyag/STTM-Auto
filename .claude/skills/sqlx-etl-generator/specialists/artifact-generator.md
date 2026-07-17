@@ -106,8 +106,25 @@ python scripts/gen_bootstrap.py \
     --udf-doc <path to udf.md> \
     --templates-dir templates/bootstrap \
     --output-dir bootstrap \
-    --intermediate-database intermediate_db
+    --intermediate-database intermediate_db \
+    --buildspecs-dir metadata/build
 ```
+
+`--buildspecs-dir` must always be passed on a real Generate run (the buildspecs this
+specialist itself depends on already exist by this point) — it's what lets
+`db/01_init/03_create_fdw_target_to_intermediate.sql` be rendered with real, explicit
+`CREATE FOREIGN TABLE` statements (one per staging table, exact column shape from the
+buildspec) instead of an unusable placeholder. It's optional only so
+`scripts/smoke_test.py` can keep exercising this script in isolation without a full
+Generate run alongside it.
+
+This also writes `db/01_init/04_create_fdw_intermediate_to_target.sql` — the bridge
+`process.sqlx` needs for any `LOOKUP`-typed column reading an already-loaded table in
+`target_db` from `intermediate_db` (`fdw_target_db`, per
+`references/naming-conventions.md`). This bridge is always safe as either
+`IMPORT FOREIGN SCHEMA` or explicit `CREATE FOREIGN TABLE`, since target tables already
+exist (bootstrap DDL) before any pipeline run — unlike the staging bridge above, which
+targets tables that don't exist until `read.sqlx` first runs.
 
 This writes `bootstrap/**` including its own `manifest.json` — a **separate file**
 from `metadata/cleanup/cleanup_manifest.json` (bootstrap objects are demo/test

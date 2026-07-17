@@ -12,6 +12,7 @@ Emits, under --output-dir (bootstrap/):
   db/01_init/01_create_schemas.sql
   db/01_init/02_create_fdw_intermediate_to_source.sql   (per declared source database)
   db/01_init/03_create_fdw_target_to_intermediate.sql
+  db/01_init/04_create_fdw_intermediate_to_target.sql   (fdw_<target_db> bridge for LOOKUP columns)
   db/02_source/ddl_source_tables.sql
   db/02_source/seed_source_data.sql
   db/03_intermediate/init_staging_schema.sql
@@ -28,7 +29,29 @@ Usage:
         --udf-doc <path to udf.md> \
         --templates-dir templates/bootstrap \
         --output-dir bootstrap \
-        --intermediate-database intermediate_db
+        --intermediate-database intermediate_db \
+        --buildspecs-dir metadata/build
+
+--buildspecs-dir is optional. When given (every real Generate run has buildspecs
+available by the time this specialist runs -- see specialists/artifact-generator.md),
+db/01_init/03_create_fdw_target_to_intermediate.sql is rendered with one explicit
+CREATE FOREIGN TABLE per staging table (exact column shape from the buildspec,
+including LOOKUP helper columns) instead of the unusable IMPORT FOREIGN SCHEMA
+placeholder -- see "Why CREATE FOREIGN TABLE, not IMPORT FOREIGN SCHEMA" below.
+When omitted, behavior is unchanged from before (placeholder text), so existing
+callers (e.g. smoke_test.py, which intentionally exercises this script in isolation
+without a buildspecs dir) keep working exactly as before.
+
+## Why CREATE FOREIGN TABLE, not IMPORT FOREIGN SCHEMA, for the staging bridge
+
+Staging tables (stg_<table>) are created at pipeline run time by each table's
+read.sqlx, not by bootstrap -- they don't exist yet when this script's output runs.
+IMPORT FOREIGN SCHEMA introspects the remote catalog immediately and fails if the
+remote table isn't there yet. CREATE FOREIGN TABLE only registers local metadata
+and does not validate the remote table until it is actually queried (verified
+empirically against a live PostgreSQL 17 instance while building this fix), so
+declaring the staging bridge's foreign tables explicitly -- using the same column
+shape the buildspec already commits to -- sidesteps the ordering problem entirely.
 
 Exit codes:
     0  success
@@ -128,6 +151,54 @@ def topological_reset_order(tables: list[dict]) -> list[str]:
     return ordered
 
 
+def foreign_table_shape(table: dict) -> dict:
+    """Column-only DDL body for a CREATE FOREIGN TABLE statement: name/type/NOT
+    NULL, no CONSTRAINT clauses. PostgreSQL rejects PRIMARY KEY/FOREIGN KEY
+    constraints on foreign tables outright (verified against a live PostgreSQL
+    17 instance while building this fix: 'primary key constraints are not
+    supported on foreign tables') -- table['ddl_body'] from enrich_tables()
+    includes exactly those constraints, so it must not be reused here.
+
+    Name is lowercased -- verified against a live PostgreSQL 17 instance that
+    this is load-bearing, not cosmetic: db/04_target/ddl_target_tables.sql
+    creates tables with an *unquoted* identifier (e.g. `CREATE TABLE DIM_PATIENT`),
+    which PostgreSQL folds to lowercase (`dim_patient`) in its catalog regardless
+    of how the schema IR spells the name. The FDW `OPTIONS (table_name '...')`
+    value is a string literal compared verbatim against that catalog entry, not
+    an identifier subject to the same folding -- passing the schema IR's name
+    unlowercased here caused a live 'relation does not exist' failure at query
+    time even though CREATE FOREIGN TABLE itself succeeded. The Mapping Resolver
+    already assumes this convention when it writes a LOOKUP expression like
+    `fdw_target_db.dim_patient` (see references/naming-conventions.md), so the
+    local foreign table name must match that lowercase spelling too."""
+    lines = [
+        f"    {c['name']} {c['type']}" + ("" if c["nullable"] else " NOT NULL")
+        for c in table["columns"]
+    ]
+    return {"name": table["name"].lower(), "ddl_body": ",\n".join(lines)}
+
+
+def staging_table_shape(buildspec: dict) -> dict:
+    """The exact column shape (name, type) of one buildspec's staging table --
+    every target column plus, for each LOOKUP column with a natural-key source,
+    its `_lookup_<target_column>` helper column. This mirrors
+    scripts/render_sqlx.py's build_render_context (the only other place this
+    shape is computed) rather than importing it: SQLX Generator and this
+    specialist's script are deliberately decoupled (each takes only the narrow
+    input its own contract names), and this projection is ~10 lines, not worth
+    coupling two independently-run scripts over."""
+    columns = buildspec["columns"]
+    lines = [f"    {c['target_column']} {c['type']}" for c in columns]
+    for c in columns:
+        if c["transformation"] == "LOOKUP" and c["source"] is not None:
+            lines.append(f"    _lookup_{c['target_column']} {c['type']}")
+    # Lowercased for the same reason as foreign_table_shape() above: read.sqlx's
+    # `CREATE TABLE IF NOT EXISTS {{ staging_table }}` is unquoted, so the real
+    # catalog name is always lowercase regardless of the buildspec's own casing
+    # (staging_table is conventionally already lowercase, but not schema-enforced).
+    return {"name": buildspec["staging_table"].lower(), "ddl_body": ",\n".join(lines)}
+
+
 def extract_udf_sql_blocks(udf_doc_path: Path) -> list[str]:
     """Pull every fenced ```sql code block out of udf.md verbatim. This is a copy, not a
     parse: the Artifact Generator does not interpret or rewrite UDF bodies, per ADR-001's
@@ -152,6 +223,12 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--intermediate-database", default="intermediate_db")
     parser.add_argument("--project-name", default="generated-etl-project")
+    parser.add_argument(
+        "--buildspecs-dir", type=Path, default=None,
+        help="metadata/build/ -- optional; when given, renders the target-to-intermediate "
+             "FDW bridge with real staging-table shapes instead of a placeholder (see module "
+             "docstring 'Why CREATE FOREIGN TABLE, not IMPORT FOREIGN SCHEMA')",
+    )
     args = parser.parse_args()
 
     source_ir = json.loads(args.source_schema.read_text(encoding="utf-8"))
@@ -242,17 +319,58 @@ def main() -> int:
         },
         init_dir / "02_create_fdw_intermediate_to_source.sql",
     )
+    if args.buildspecs_dir is not None and args.buildspecs_dir.exists():
+        buildspecs = [
+            json.loads(p.read_text(encoding="utf-8"))
+            for p in sorted(args.buildspecs_dir.glob("*.buildspec.json"))
+        ]
+        staging_tables = [staging_table_shape(b) for b in buildspecs]
+        render_and_write(
+            env, "fdw_explicit.sql.tmpl",
+            {
+                "local_database": target_ir["database"],
+                "remote_database": args.intermediate_database,
+                "foreign_schema": fdw_alias(args.intermediate_database),
+                "server_name": f"{fdw_alias(args.intermediate_database)}_srv",
+                "tables": staging_tables,
+                "script_name": "03_create_fdw_target_to_intermediate.sql",
+            },
+            init_dir / "03_create_fdw_target_to_intermediate.sql",
+        )
+    else:
+        # Backward-compatible fallback (no buildspecs available -- e.g. smoke_test.py
+        # exercising this script in isolation): unusable-as-SQL placeholder text, same
+        # as before this fix. A real Generate run always passes --buildspecs-dir.
+        render_and_write(
+            env, "fdw.sql.tmpl",
+            {
+                "local_database": target_ir["database"],
+                "remote_database": args.intermediate_database,
+                "foreign_schema": fdw_alias(args.intermediate_database),
+                "server_name": f"{fdw_alias(args.intermediate_database)}_srv",
+                "tables": ["<staging tables are named per metadata/build/*.buildspec.json:staging_table -- import per-table after Generate runs, e.g. IMPORT FOREIGN SCHEMA public LIMIT TO (stg_...) ...>"],
+                "script_name": "03_create_fdw_target_to_intermediate.sql",
+            },
+            init_dir / "03_create_fdw_target_to_intermediate.sql",
+        )
+
+    # fdw_<target_db>: read target_db from intermediate_db -- needed by process.sqlx's
+    # LOOKUP-typed columns (references/naming-conventions.md "Foreign schema alias"),
+    # which run in intermediate_db but must read an already-loaded dimension table in
+    # target_db. Target tables already exist by bootstrap DDL (04_target, above) before
+    # any pipeline run, so this uses the same explicit-CREATE-FOREIGN-TABLE approach for
+    # consistency, but would be equally safe with IMPORT FOREIGN SCHEMA.
     render_and_write(
-        env, "fdw.sql.tmpl",
+        env, "fdw_explicit.sql.tmpl",
         {
-            "local_database": target_ir["database"],
-            "remote_database": args.intermediate_database,
-            "foreign_schema": fdw_alias(args.intermediate_database),
-            "server_name": f"{fdw_alias(args.intermediate_database)}_srv",
-            "tables": ["<staging tables are named per metadata/build/*.buildspec.json:staging_table -- import per-table after Generate runs, e.g. IMPORT FOREIGN SCHEMA public LIMIT TO (stg_...) ...>"],
-            "script_name": "03_create_fdw_target_to_intermediate.sql",
+            "local_database": args.intermediate_database,
+            "remote_database": target_ir["database"],
+            "foreign_schema": fdw_alias(target_ir["database"]),
+            "server_name": f"{fdw_alias(target_ir['database'])}_srv",
+            "tables": [foreign_table_shape(t) for t in target_tables],
+            "script_name": "04_create_fdw_intermediate_to_target.sql",
         },
-        init_dir / "03_create_fdw_target_to_intermediate.sql",
+        init_dir / "04_create_fdw_intermediate_to_target.sql",
     )
 
     # db/03_intermediate
