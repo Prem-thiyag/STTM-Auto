@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-07-17T14:52:00.664883Z",
+  "objects": [
+    {
+      "database": "source_db",
+      "object": "CUSTOMER",
+      "type": "table",
+      "script": "bootstrap/db/02_source/ddl_source_tables.sql",
+      "command": "TRUNCATE TABLE CUSTOMER CASCADE;"
+    },
+    {
+      "database": "source_db",
+      "object": "CUSTOMER_ORDER",
+      "type": "table",
+      "script": "bootstrap/db/02_source/ddl_source_tables.sql",
+      "command": "TRUNCATE TABLE CUSTOMER_ORDER CASCADE;"
+    },
+    {
+      "database": "target_db",
+      "object": "DIM_CUSTOMER",
+      "type": "table",
+      "script": "bootstrap/db/04_target/ddl_target_tables.sql",
+      "command": "TRUNCATE TABLE DIM_CUSTOMER CASCADE;"
+    },
+    {
+      "database": "target_db",
+      "object": "FACT_ORDER",
+      "type": "table",
+      "script": "bootstrap/db/04_target/ddl_target_tables.sql",
+      "command": "TRUNCATE TABLE FACT_ORDER CASCADE;"
+    }
+  ]
+}

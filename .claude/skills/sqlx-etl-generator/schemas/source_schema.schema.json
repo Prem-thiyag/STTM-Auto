@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/source_schema.schema.json",
+  "title": "Source Schema IR",
+  "description": "Normalized representation of the source_schema.md input, produced by the Schema Parser specialist. One instance per Generate run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["database", "generated_at", "tables"],
+  "properties": {
+    "database": {
+      "type": "string",
+      "description": "Logical name of the source database as it will be referenced in generated SQLX (e.g. the value used in a Postgres MCP connection alias). Must originate from the input documents, never invented."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tables": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/table" }
+    }
+  },
+  "$defs": {
+    "table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "columns"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": ["string", "null"], "default": null },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/column" }
+        }
+      }
+    },
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "nullable", "primary_key", "foreign_key"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Column type exactly as declared in the source document. Dialect mapping happens later, at render time, never here."
+        },
+        "nullable": { "type": "boolean" },
+        "primary_key": { "type": "boolean" },
+        "foreign_key": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["table", "column"],
+              "properties": {
+                "table": { "type": "string", "minLength": 1 },
+                "column": { "type": "string", "minLength": 1 }
+              }
+            }
+          ]
+        },
+        "description": { "type": ["string", "null"], "default": null }
+      }
+    }
+  }
+}

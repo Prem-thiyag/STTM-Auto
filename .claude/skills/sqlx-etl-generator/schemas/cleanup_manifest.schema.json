@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/cleanup_manifest.schema.json",
+  "title": "Cleanup Manifest",
+  "description": "Inventory of every database object the generated pipeline creates (staging tables in intermediate_db, target tables it truncates/writes), with the exact command to remove/reset each. Produced by the Artifact Generator from dependency_graph.json and every buildspec. Consumed exclusively by the Clean plan, which never derives this list itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["objects"],
+  "properties": {
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["database", "object", "type", "command"],
+        "properties": {
+          "database": { "type": "string", "minLength": 1 },
+          "object": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["table", "view"] },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fully resolved SQL statement (DROP/TRUNCATE), never a template."
+          }
+        }
+      }
+    }
+  }
+}

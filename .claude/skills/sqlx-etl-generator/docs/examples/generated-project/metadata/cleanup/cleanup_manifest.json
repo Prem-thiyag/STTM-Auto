@@ -1,0 +1,8 @@
+{
+  "objects": [
+    { "database": "intermediate_db", "object": "stg_dim_customer", "type": "table", "command": "DROP TABLE IF EXISTS stg_dim_customer;" },
+    { "database": "intermediate_db", "object": "stg_fact_order", "type": "table", "command": "DROP TABLE IF EXISTS stg_fact_order;" },
+    { "database": "target_db", "object": "DIM_CUSTOMER", "type": "table", "command": "TRUNCATE TABLE DIM_CUSTOMER;" },
+    { "database": "target_db", "object": "FACT_ORDER", "type": "table", "command": "TRUNCATE TABLE FACT_ORDER;" }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/execution_plan.schema.json",
+  "title": "Execution Plan",
+  "description": "Ordered, engine-agnostic step list produced by the Artifact Generator from dependency_graph.execution_order. Consumed by both the Execute plan (which reads this file and prints steps one at a time, formatting its own display command from a step's fields) and the standalone engine/ runtime (which reads this file to sequence work, and each step's .sqlx file to know what to actually run). Deliberately contains no shell command or MCP invocation string — see docs/ASSUMPTIONS.md 'execution_plan.json is declarative'. Execute never derives ordering itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_at", "steps"],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "table", "stage", "database", "file", "depends_on"],
+        "properties": {
+          "step_id": { "type": "string", "pattern": "^[0-9]+$" },
+          "table": { "type": "string", "minLength": 1 },
+          "stage": { "type": "string", "enum": ["read", "process", "write"] },
+          "database": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Which database this step runs against: buildspec.target_database for 'write', the Generate run's intermediate database for 'read'/'process'. Also recorded in the step's .sqlx file's own config block (references/sqlx-syntax-guide.md) — the engine cross-checks the two match rather than trusting either alone (engine/README.md 'Declared vs. observed database')."
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^definitions/.+\\.sqlx$"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[0-9]+$" }
+          }
+        }
+      }
+    }
+  }
+}

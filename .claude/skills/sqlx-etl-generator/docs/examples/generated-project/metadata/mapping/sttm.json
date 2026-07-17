@@ -1,0 +1,12 @@
+{
+  "generated_at": "2026-07-17T12:05:00Z",
+  "mappings": [
+    { "id": "M001", "target_table": "DIM_CUSTOMER", "target_column": "customer_key", "source_table": "CUSTOMER", "source_column": "customer_id", "transformation": "DIRECT", "transformation_detail": "direct copy", "udf_reference": null, "notes": null },
+    { "id": "M002", "target_table": "DIM_CUSTOMER", "target_column": "full_name", "source_table": "CUSTOMER", "source_column": ["first_name", "last_name"], "transformation": "UDF", "transformation_detail": "concat first and last name via UDF", "udf_reference": "fn_full_name", "notes": null },
+    { "id": "M003", "target_table": "DIM_CUSTOMER", "target_column": "status", "source_table": "CUSTOMER", "source_column": "status", "transformation": "DIRECT", "transformation_detail": "direct copy", "udf_reference": null, "notes": null },
+    { "id": "M004", "target_table": "FACT_ORDER", "target_column": "order_key", "source_table": "CUSTOMER_ORDER", "source_column": "order_id", "transformation": "DIRECT", "transformation_detail": "direct copy", "udf_reference": null, "notes": null },
+    { "id": "M005", "target_table": "FACT_ORDER", "target_column": "customer_key", "source_table": "CUSTOMER_ORDER", "source_column": "customer_id", "transformation": "LOOKUP", "transformation_detail": "lookup DIM_CUSTOMER surrogate key by natural customer_id", "udf_reference": null, "notes": "depends on DIM_CUSTOMER being loaded first" },
+    { "id": "M006", "target_table": "FACT_ORDER", "target_column": "order_date", "source_table": "CUSTOMER_ORDER", "source_column": "order_date", "transformation": "DIRECT", "transformation_detail": "direct copy", "udf_reference": null, "notes": null },
+    { "id": "M007", "target_table": "FACT_ORDER", "target_column": "amount", "source_table": "CUSTOMER_ORDER", "source_column": "amount", "transformation": "DIRECT", "transformation_detail": "direct copy", "udf_reference": null, "notes": null }
+  ]
+}

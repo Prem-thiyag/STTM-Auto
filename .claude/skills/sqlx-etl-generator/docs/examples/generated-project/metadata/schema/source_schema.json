@@ -1,0 +1,28 @@
+{
+  "database": "source_db",
+  "generated_at": "2026-07-17T12:00:00Z",
+  "tables": [
+    {
+      "name": "CUSTOMER",
+      "description": "Customer master data",
+      "columns": [
+        { "name": "customer_id", "type": "integer", "nullable": false, "primary_key": true, "foreign_key": null, "description": "Unique customer identifier" },
+        { "name": "first_name", "type": "varchar(100)", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Customer's given name" },
+        { "name": "last_name", "type": "varchar(100)", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Customer's family name" },
+        { "name": "status", "type": "varchar(20)", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Account status" },
+        { "name": "created_at", "type": "timestamp", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Row creation timestamp" }
+      ]
+    },
+    {
+      "name": "CUSTOMER_ORDER",
+      "description": "Customer orders",
+      "columns": [
+        { "name": "order_id", "type": "integer", "nullable": false, "primary_key": true, "foreign_key": null, "description": "Unique order identifier" },
+        { "name": "customer_id", "type": "integer", "nullable": false, "primary_key": false, "foreign_key": { "table": "CUSTOMER", "column": "customer_id" }, "description": "Ordering customer" },
+        { "name": "order_date", "type": "date", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Date the order was placed" },
+        { "name": "amount", "type": "numeric(12,2)", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Order total" },
+        { "name": "status", "type": "varchar(20)", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Order status" }
+      ]
+    }
+  ]
+}

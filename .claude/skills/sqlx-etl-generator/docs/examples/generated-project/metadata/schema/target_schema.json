@@ -1,0 +1,25 @@
+{
+  "database": "target_db",
+  "generated_at": "2026-07-17T12:00:00Z",
+  "tables": [
+    {
+      "name": "DIM_CUSTOMER",
+      "description": "Customer dimension",
+      "columns": [
+        { "name": "customer_key", "type": "integer", "nullable": false, "primary_key": true, "foreign_key": null, "description": "Customer dimension key" },
+        { "name": "full_name", "type": "varchar(200)", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Customer's full display name" },
+        { "name": "status", "type": "varchar(20)", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Account status" }
+      ]
+    },
+    {
+      "name": "FACT_ORDER",
+      "description": "Order fact",
+      "columns": [
+        { "name": "order_key", "type": "integer", "nullable": false, "primary_key": true, "foreign_key": null, "description": "Order fact key" },
+        { "name": "customer_key", "type": "integer", "nullable": false, "primary_key": false, "foreign_key": { "table": "DIM_CUSTOMER", "column": "customer_key" }, "description": "Ordering customer's dimension key" },
+        { "name": "order_date", "type": "date", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Date the order was placed" },
+        { "name": "amount", "type": "numeric(12,2)", "nullable": false, "primary_key": false, "foreign_key": null, "description": "Order total" }
+      ]
+    }
+  ]
+}

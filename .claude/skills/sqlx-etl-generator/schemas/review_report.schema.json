@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/review_report.schema.json",
+  "title": "Review Report",
+  "description": "Result of running the checks in review_spec.json. Owned exclusively by the Review plan; overwritten in full on every Review run. Execute reads status here as a gate check before proceeding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reviewed_at", "status", "results", "drift"],
+  "properties": {
+    "reviewed_at": { "type": "string", "format": "date-time" },
+    "status": { "type": "string", "enum": ["PASS", "FAIL", "WARN"] },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "status", "detail"],
+        "properties": {
+          "check_id": { "type": "string", "pattern": "^C[0-9]+$" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "WARN"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "drift": {
+      "type": "array",
+      "description": "Files whose current on-disk hash no longer matches metadata/manifest.json's generated_files record, i.e. hand-edited since the last Generate run.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "expected_hash", "actual_hash", "status"],
+        "properties": {
+          "file": { "type": "string" },
+          "expected_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "actual_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "status": { "type": "string", "const": "MODIFIED_SINCE_GENERATE" }
+        }
+      }
+    }
+  }
+}

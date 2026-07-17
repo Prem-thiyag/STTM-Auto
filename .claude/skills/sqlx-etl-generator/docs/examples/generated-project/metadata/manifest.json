@@ -1,0 +1,117 @@
+{
+  "project_name": "retail-analytics-etl",
+  "generated_at": "2026-07-17T13:05:00Z",
+  "skill_version": "1.0.0",
+  "inputs": {
+    "source_schema_md": {
+      "path": "docs/examples/source_schema.md",
+      "hash": "sha256:b1fbfdc700e44c40539a549cfaa96cb858c90497227f419dba685e002ca32699"
+    },
+    "target_schema_md": {
+      "path": "docs/examples/target_schema.md",
+      "hash": "sha256:a0e5b1b07dde0375557b3408763be4bd93e0eb0f531f9ad2d2e1dd5228b39d37"
+    },
+    "sttm_xlsx": {
+      "path": "docs/examples/sttm_workbook.xlsx",
+      "hash": "sha256:730199e748a14193e9aa25e81629a688c0c09cb6d9a8c5b9f55685b5791183e1"
+    },
+    "udf_md": {
+      "path": "docs/examples/udf.md",
+      "hash": "sha256:e1fcccf2c57bea37d32fe4f8358010c5de942d9441105e31f6cdffaff6b12a82"
+    },
+    "folder_hierarchy_md": {
+      "path": "docs/examples/folder_hierarchy.md",
+      "hash": "sha256:6917062c705b14ab750319942dd4f6c6ea4a5de6fdd915bb236f5f3cfd3e7ce6"
+    }
+  },
+  "tables": [
+    "DIM_CUSTOMER",
+    "FACT_ORDER"
+  ],
+  "generated_files": [
+    {
+      "path": "bootstrap/README.md",
+      "hash": "sha256:cb5c63d856996a2b7dd08eeae0e1562a3cb351ecd9d699c0b232927fd19407a1"
+    },
+    {
+      "path": "bootstrap/db/01_init/01_create_schemas.sql",
+      "hash": "sha256:8bddf740678614e24a986938f57c920fba5a81ecee91ed6280c5a2e36b7ae73d"
+    },
+    {
+      "path": "bootstrap/db/01_init/02_create_fdw_intermediate_to_source.sql",
+      "hash": "sha256:8914acff8fd5743c1c5a041fc779505e35b08c7ad1ac72f8b00a9e557f465432"
+    },
+    {
+      "path": "bootstrap/db/01_init/03_create_fdw_target_to_intermediate.sql",
+      "hash": "sha256:1a3d09ffe41412709f926e15577a44bf5e363236ef7e51a52be9b88a9b6f70ea"
+    },
+    {
+      "path": "bootstrap/db/02_source/ddl_source_tables.sql",
+      "hash": "sha256:a5f7270cdb14fccf5bd6075f1f5b85a052ca7e202ea9db9ff8eda9ecba7cb40d"
+    },
+    {
+      "path": "bootstrap/db/02_source/seed_source_data.sql",
+      "hash": "sha256:63fb40a0af92d6ea95835f46732a1955dabfcf7591ebce4ea2756f127cd562e6"
+    },
+    {
+      "path": "bootstrap/db/03_intermediate/create_udfs.sql",
+      "hash": "sha256:6fcb1cd9e103cff545838d48808e07b87f870f2b0e3730dc7ed4951f52532c45"
+    },
+    {
+      "path": "bootstrap/db/03_intermediate/init_staging_schema.sql",
+      "hash": "sha256:db642d3feca928cca0d0fabdc2813f2a5eb217e380498b1877374c7eba910b33"
+    },
+    {
+      "path": "bootstrap/db/04_target/ddl_target_tables.sql",
+      "hash": "sha256:b78733480faed2d8c69034b4d0e0f2a1274ca13ef935eafee8411d816dabee36"
+    },
+    {
+      "path": "bootstrap/manifest.json",
+      "hash": "sha256:31ebd29e2c2ab19496da10331234c8303478d46c6bee7bb0e9edbf39912b0e4e"
+    },
+    {
+      "path": "bootstrap/reset/reset_source.sql",
+      "hash": "sha256:9a049b72cac6fd9891a48711f54fe1848170ab0dd6308f07037280f80dd46440"
+    },
+    {
+      "path": "bootstrap/reset/reset_target.sql",
+      "hash": "sha256:700af8b618fd3caf373de9ba987f367ec5bf6d0de79cbfcf5670992aff4a5d58"
+    },
+    {
+      "path": "definitions/DIM_CUSTOMER/process.sqlx",
+      "hash": "sha256:e725c62ab6df76def675db78087e9e72766609b2ff0b0e733209892ceeef2e48"
+    },
+    {
+      "path": "definitions/DIM_CUSTOMER/read.sqlx",
+      "hash": "sha256:90b0eb26a63c31720869c332bda51b3bae4691783cd636cdaba246c50abbbaa1"
+    },
+    {
+      "path": "definitions/DIM_CUSTOMER/write.sqlx",
+      "hash": "sha256:49a88156372f800024a0a71d5ef4fe120d638ec88487e2a9c6fa03b730a1ce07"
+    },
+    {
+      "path": "definitions/FACT_ORDER/process.sqlx",
+      "hash": "sha256:0d69f574938267b560bf540f548636296f0d0ef6a6ab3811244e8152df12ac3d"
+    },
+    {
+      "path": "definitions/FACT_ORDER/read.sqlx",
+      "hash": "sha256:3e2dfbc290e2a7818200bffa549f0a8e92b3e34172f50a2d4e4e355fc78d7e93"
+    },
+    {
+      "path": "definitions/FACT_ORDER/write.sqlx",
+      "hash": "sha256:d373e559189094db2927b07ec9f3da286413ceccbabc0119197d1a354b93031b"
+    },
+    {
+      "path": "metadata/cleanup/cleanup_manifest.json",
+      "hash": "sha256:33ae266a50487deae3effa4d8daba51fe23db9266e746da1b5e6e6f2e4ccdfa0"
+    },
+    {
+      "path": "metadata/execution/execution_plan.json",
+      "hash": "sha256:bc001db37a876bb43d19772752d782dbd4512bcf7c177df5b1fadf30ce247fd9"
+    },
+    {
+      "path": "metadata/review/review_spec.json",
+      "hash": "sha256:73cc8f11149d55f8c0e521fcc24f800774914c1d63690a4da9f29fc0a77de64a"
+    }
+  ]
+}

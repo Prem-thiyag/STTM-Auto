@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/buildspec.schema.json",
+  "title": "Build Specification (canonical Intermediate Representation)",
+  "description": "The ONE artifact the SQLX Generator is allowed to read. Produced by the Mapping Resolver. Every field the SQLX Generator needs to render read/process/write.sqlx must be present here — the generator must never re-read source_schema.json, target_schema.json, sttm.json, or udf.md to fill a gap. One file per target table: metadata/build/<TABLE>.buildspec.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "target_table", "target_database", "load_strategy", "source_tables",
+    "staging_table", "columns", "joins", "filters", "grain", "mapping_refs"
+  ],
+  "properties": {
+    "target_table": { "type": "string", "minLength": 1 },
+    "target_database": { "type": "string", "minLength": 1 },
+    "load_strategy": {
+      "type": "string",
+      "enum": ["full_load", "incremental", "scd2"],
+      "default": "full_load",
+      "description": "Reserved for future use per ADR-001 §6/§11. Only 'full_load' has a corresponding SQLX template today; 'incremental' and 'scd2' are accepted values with no renderer yet and MUST cause the SQLX Generator to fail loudly rather than fall back to full_load silently."
+    },
+    "source_tables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["database", "table"],
+        "properties": {
+          "database": { "type": "string", "minLength": 1 },
+          "table": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "staging_table": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the intermediate_db table that read.sqlx lands into and process.sqlx transforms in place."
+    },
+    "columns": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/column_mapping" }
+    },
+    "joins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["left_table", "right_table", "type", "on"],
+        "properties": {
+          "left_table": { "type": "string", "minLength": 1 },
+          "right_table": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["INNER", "LEFT", "RIGHT", "FULL"] },
+          "on": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fully-formed SQL boolean join predicate, already resolved to concrete column names. The SQLX Generator inserts this verbatim; it performs no further reasoning about join logic."
+          }
+        }
+      }
+    },
+    "filters": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Fully-formed SQL boolean predicate, inserted verbatim into the WHERE clause of process.sqlx."
+      }
+    },
+    "grain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-sentence statement of the table's row grain, e.g. 'one row per <entity>'. Carried into generated SQLX as a header comment for human readers; not used by any downstream logic."
+    },
+    "mapping_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^M[0-9]{3,}$" },
+      "description": "IDs into metadata/mapping/sttm.json this buildspec was resolved from, for audit traceability."
+    }
+  },
+  "$defs": {
+    "column_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_column", "type", "source", "transformation", "expression", "udf", "generator"],
+      "properties": {
+        "target_column": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "source": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["table", "column"],
+              "properties": {
+                "table": { "type": "string", "minLength": 1 },
+                "column": {
+                  "oneOf": [
+                    { "type": "string", "minLength": 1 },
+                    { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 }
+                  ]
+                }
+              }
+            }
+          ],
+          "description": "null when transformation is CONSTANT or GENERATED (both produce a value with no source column)."
+        },
+        "transformation": {
+          "type": "string",
+          "enum": ["DIRECT", "EXPRESSION", "UDF", "CONSTANT", "LOOKUP", "GENERATED", "NEEDS_REVIEW"]
+        },
+        "expression": {
+          "type": ["string", "null"],
+          "description": "Fully-formed SQL scalar expression, required when transformation is EXPRESSION, CONSTANT, or LOOKUP; null otherwise. GENERATED columns use 'generator' instead of a raw expression string."
+        },
+        "udf": {
+          "type": ["string", "null"],
+          "description": "UDF name from udf.md, required when transformation is UDF; null otherwise."
+        },
+        "generator": {
+          "description": "Semantic description of how a GENERATED column's value is produced; null unless transformation is GENERATED. The SQLX Generator derives the actual SQL expression from this (scripts/render_sqlx.py render_generator_expression()), rather than trusting a pre-written expression string, so a generated-column's *meaning* (e.g. 'a row-number surrogate key ordered by X') stays legible in the buildspec instead of being buried in opaque SQL.",
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/generator" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "transformation": { "const": "GENERATED" } },
+            "required": ["transformation"]
+          },
+          "then": {
+            "properties": { "generator": { "type": "object" } },
+            "required": ["generator"]
+          },
+          "else": {
+            "properties": { "generator": { "type": "null" } }
+          }
+        }
+      ]
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ROW_NUMBER", "SEQUENCE", "UUID", "DEFAULT"],
+          "description": "ROW_NUMBER: a surrogate key numbered by 'order_by'. SEQUENCE: pulls from a named PostgreSQL sequence. UUID: gen_random_uuid() (PostgreSQL 13+, no extension required). DEFAULT: a fixed literal, inserted verbatim like CONSTANT but semantically 'this column has no meaningful source, not even a business-constant value'."
+        },
+        "order_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required when type is ROW_NUMBER. A bare column name on the buildspec's first-listed source_tables entry; the SQLX Generator fully qualifies it."
+        },
+        "sequence_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required when type is SEQUENCE. Must already exist in the target database (sequence creation is a bootstrap/DDL concern, not something a buildspec provisions)."
+        },
+        "default_value": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required when type is DEFAULT. Inserted verbatim, exactly like a CONSTANT transformation's 'expression'."
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "ROW_NUMBER" } }, "required": ["type"] }, "then": { "required": ["order_by"] } },
+        { "if": { "properties": { "type": { "const": "SEQUENCE" } }, "required": ["type"] }, "then": { "required": ["sequence_name"] } },
+        { "if": { "properties": { "type": { "const": "DEFAULT" } }, "required": ["type"] }, "then": { "required": ["default_value"] } }
+      ]
+    }
+  }
+}

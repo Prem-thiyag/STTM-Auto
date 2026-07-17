@@ -1,0 +1,11 @@
+{
+  "generated_at": "2026-07-17T13:00:00Z",
+  "steps": [
+    { "step_id": "1", "table": "DIM_CUSTOMER", "stage": "read", "database": "intermediate_db", "file": "definitions/DIM_CUSTOMER/read.sqlx", "depends_on": [] },
+    { "step_id": "2", "table": "DIM_CUSTOMER", "stage": "process", "database": "intermediate_db", "file": "definitions/DIM_CUSTOMER/process.sqlx", "depends_on": ["1"] },
+    { "step_id": "3", "table": "DIM_CUSTOMER", "stage": "write", "database": "target_db", "file": "definitions/DIM_CUSTOMER/write.sqlx", "depends_on": ["2"] },
+    { "step_id": "4", "table": "FACT_ORDER", "stage": "read", "database": "intermediate_db", "file": "definitions/FACT_ORDER/read.sqlx", "depends_on": [] },
+    { "step_id": "5", "table": "FACT_ORDER", "stage": "process", "database": "intermediate_db", "file": "definitions/FACT_ORDER/process.sqlx", "depends_on": ["4", "3"] },
+    { "step_id": "6", "table": "FACT_ORDER", "stage": "write", "database": "target_db", "file": "definitions/FACT_ORDER/write.sqlx", "depends_on": ["5"] }
+  ]
+}

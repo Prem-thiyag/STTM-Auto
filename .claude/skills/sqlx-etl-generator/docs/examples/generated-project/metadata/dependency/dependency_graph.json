@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-07-17T12:10:00Z",
+  "nodes": [
+    { "id": "DIM_CUSTOMER.read", "table": "DIM_CUSTOMER", "stage": "read" },
+    { "id": "DIM_CUSTOMER.process", "table": "DIM_CUSTOMER", "stage": "process" },
+    { "id": "DIM_CUSTOMER.write", "table": "DIM_CUSTOMER", "stage": "write" },
+    { "id": "FACT_ORDER.read", "table": "FACT_ORDER", "stage": "read" },
+    { "id": "FACT_ORDER.process", "table": "FACT_ORDER", "stage": "process" },
+    { "id": "FACT_ORDER.write", "table": "FACT_ORDER", "stage": "write" }
+  ],
+  "edges": [
+    { "from": "DIM_CUSTOMER.read", "to": "DIM_CUSTOMER.process", "reason": "structural: read before process" },
+    { "from": "DIM_CUSTOMER.process", "to": "DIM_CUSTOMER.write", "reason": "structural: process before write" },
+    { "from": "FACT_ORDER.read", "to": "FACT_ORDER.process", "reason": "structural: read before process" },
+    { "from": "FACT_ORDER.process", "to": "FACT_ORDER.write", "reason": "structural: process before write" },
+    { "from": "DIM_CUSTOMER.write", "to": "FACT_ORDER.process", "reason": "FK lookup: customer_key references DIM_CUSTOMER (mapping M005)" }
+  ],
+  "execution_order": [
+    "DIM_CUSTOMER.read", "DIM_CUSTOMER.process", "DIM_CUSTOMER.write",
+    "FACT_ORDER.read", "FACT_ORDER.process", "FACT_ORDER.write"
+  ]
+}

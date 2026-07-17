@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/bootstrap_manifest.schema.json",
+  "title": "Bootstrap Manifest",
+  "description": "Inventory of demo/test-environment objects the bootstrap/ scripts create (databases, schemas, source and target tables). Same shape as cleanup_manifest.json by design, but a deliberately separate file: bootstrap objects are environment scaffolding created once and rarely torn down, while cleanup_manifest.json covers per-run pipeline artifacts. Never conflate the two files or Clean could drop the demo environment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_at", "objects"],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["database", "object", "type", "script", "command"],
+        "properties": {
+          "database": { "type": "string", "minLength": 1 },
+          "object": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["schema", "table"] },
+          "script": {
+            "type": "string",
+            "pattern": "^bootstrap/.+\\.sql$",
+            "description": "Path to the bootstrap script that creates this object."
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fully resolved reset command (DROP/TRUNCATE) for this object."
+          }
+        }
+      }
+    }
+  }
+}

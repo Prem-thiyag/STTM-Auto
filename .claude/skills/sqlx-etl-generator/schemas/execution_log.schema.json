@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/execution_log.schema.json",
+  "title": "Execution Log",
+  "description": "Append-only audit trail owned exclusively by the Execute plan. Records that a human confirmed a step was run — Execute never runs it. Absent until the first Execute session; created empty on first append.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entries"],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "confirmed_at", "confirmed_by", "status"],
+        "properties": {
+          "step_id": { "type": "string", "pattern": "^[0-9]+$" },
+          "confirmed_at": { "type": "string", "format": "date-time" },
+          "confirmed_by": { "type": "string", "const": "user" },
+          "status": { "type": "string", "enum": ["confirmed", "skipped"] }
+        }
+      }
+    }
+  }
+}

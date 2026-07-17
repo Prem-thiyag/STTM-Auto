@@ -1,0 +1,20 @@
+{
+  "reviewed_at": "2026-07-17T13:10:00Z",
+  "status": "WARN",
+  "results": [
+    { "check_id": "C1", "status": "PASS", "detail": "definitions/DIM_CUSTOMER/read.sqlx exists" },
+    { "check_id": "C2", "status": "PASS", "detail": "definitions/DIM_CUSTOMER/process.sqlx exists" },
+    { "check_id": "C3", "status": "PASS", "detail": "definitions/DIM_CUSTOMER/write.sqlx exists" },
+    { "check_id": "C4", "status": "PASS", "detail": "definitions/FACT_ORDER/read.sqlx exists" },
+    { "check_id": "C5", "status": "PASS", "detail": "definitions/FACT_ORDER/process.sqlx exists" },
+    { "check_id": "C6", "status": "PASS", "detail": "definitions/FACT_ORDER/write.sqlx exists" },
+    { "check_id": "C7", "status": "PASS", "detail": "all 3 expected columns present in DIM_CUSTOMER.buildspec.json" },
+    { "check_id": "C8", "status": "PASS", "detail": "all 4 expected columns present in FACT_ORDER.buildspec.json" },
+    { "check_id": "C9", "status": "PASS", "detail": "fn_full_name found in bootstrap/db/03_intermediate/create_udfs.sql" },
+    { "check_id": "C10", "status": "PASS", "detail": "execution_plan.json step order matches dependency_graph.json execution_order" },
+    { "check_id": "C11", "status": "PASS", "detail": "no NEEDS_REVIEW columns in any buildspec" },
+    { "check_id": "C12", "status": "WARN", "detail": "no read-only Postgres MCP connection available in this session; source_db cross-check skipped" },
+    { "check_id": "C13", "status": "WARN", "detail": "no read-only Postgres MCP connection available in this session; target_db cross-check skipped" }
+  ],
+  "drift": []
+}

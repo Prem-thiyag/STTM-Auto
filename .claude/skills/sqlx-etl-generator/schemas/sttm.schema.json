@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/sttm.schema.json",
+  "title": "STTM Mapping IR",
+  "description": "Normalized representation of the STTM workbook, produced by the STTM Parser specialist from the deterministic scripts/parse_sttm.py output. One instance per Generate run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_at", "mappings"],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "mappings": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/mapping" }
+    }
+  },
+  "$defs": {
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "target_table", "target_column", "source_table", "source_column",
+        "transformation", "transformation_detail", "udf_reference", "notes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^M[0-9]{3,}$",
+          "description": "Stable row identifier assigned in workbook row order, e.g. M001. Referenced by buildspec.mapping_refs for traceability."
+        },
+        "target_table": { "type": "string", "minLength": 1 },
+        "target_column": { "type": "string", "minLength": 1 },
+        "source_table": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 }
+          ],
+          "description": "null when the mapping is a generated column with no source (transformation is GENERATED, DEFAULT, SEQUENCE, UUID, or CONSTANT) -- see scripts/parse_sttm.py, which passes a workbook row with both Source Table and Source Column blank through as null rather than failing. Required (non-null) for DIRECT, UDF, and LOOKUP."
+        },
+        "source_column": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 },
+            { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 }
+          ],
+          "description": "A single source column, multiple when the transformation combines several columns (e.g. concatenation), or null under the same conditions as source_table -- the two are always both-null or both-populated, never just one (scripts/parse_sttm.py rejects a row with exactly one blank as malformed)."
+        },
+        "transformation": {
+          "type": "string",
+          "enum": [
+            "DIRECT", "EXPRESSION", "UDF", "CONSTANT", "LOOKUP",
+            "GENERATED", "DEFAULT", "SEQUENCE", "UUID", "NEEDS_REVIEW"
+          ],
+          "description": "GENERATED, DEFAULT, SEQUENCE, and UUID are the sourceless kinds -- a target column produced without reading any source column at all (e.g. a ROW_NUMBER surrogate key, a fixed default, a database sequence, a generated UUID). NEEDS_REVIEW is set by the Mapping Resolver, never by the STTM Parser, when the workbook's own transformation note is too ambiguous to classify into any of the other kinds."
+        },
+        "transformation_detail": {
+          "type": "string",
+          "description": "The transformation note exactly as written in the STTM workbook, preserved verbatim for audit. Empty string if the workbook cell was blank."
+        },
+        "udf_reference": {
+          "type": ["string", "null"],
+          "description": "Name of the UDF from udf.md this mapping invokes, or null when transformation is not UDF."
+        },
+        "notes": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "transformation": { "enum": ["DIRECT", "UDF", "LOOKUP"] } },
+            "required": ["transformation"]
+          },
+          "then": {
+            "properties": {
+              "source_table": { "type": "string" },
+              "source_column": { "not": { "type": "null" } }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "transformation": { "enum": ["GENERATED", "DEFAULT", "SEQUENCE", "UUID", "CONSTANT"] } },
+            "required": ["transformation"]
+          },
+          "then": {
+            "properties": {
+              "source_table": { "type": "null" },
+              "source_column": { "type": "null" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

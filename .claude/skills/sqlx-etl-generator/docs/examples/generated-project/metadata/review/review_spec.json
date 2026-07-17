@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-07-17T13:00:00Z",
+  "checks": [
+    { "id": "C1", "type": "file_exists", "target": "definitions/DIM_CUSTOMER/read.sqlx" },
+    { "id": "C2", "type": "file_exists", "target": "definitions/DIM_CUSTOMER/process.sqlx" },
+    { "id": "C3", "type": "file_exists", "target": "definitions/DIM_CUSTOMER/write.sqlx" },
+    { "id": "C4", "type": "file_exists", "target": "definitions/FACT_ORDER/read.sqlx" },
+    { "id": "C5", "type": "file_exists", "target": "definitions/FACT_ORDER/process.sqlx" },
+    { "id": "C6", "type": "file_exists", "target": "definitions/FACT_ORDER/write.sqlx" },
+    { "id": "C7", "type": "column_coverage", "target_table": "DIM_CUSTOMER", "expected_columns": ["customer_key", "full_name", "status"] },
+    { "id": "C8", "type": "column_coverage", "target_table": "FACT_ORDER", "expected_columns": ["order_key", "customer_key", "order_date", "amount"] },
+    { "id": "C9", "type": "udf_reference_valid", "udf": "fn_full_name" },
+    { "id": "C10", "type": "dependency_order_respected" },
+    { "id": "C11", "type": "no_needs_review_mappings" },
+    { "id": "C12", "type": "schema_cross_check", "scope": "source_db", "optional": true },
+    { "id": "C13", "type": "schema_cross_check", "scope": "target_db", "optional": true }
+  ]
+}

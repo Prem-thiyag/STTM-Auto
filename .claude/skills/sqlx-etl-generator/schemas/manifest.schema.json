@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/manifest.schema.json",
+  "title": "Project Manifest",
+  "description": "Top-level record of a Generate run: which input documents (and their hashes) produced which output files (and their hashes). Owned by the Artifact Generator, written last. Review's drift check compares live file hashes against generated_files here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project_name", "generated_at", "skill_version", "inputs", "tables", "generated_files"],
+  "properties": {
+    "project_name": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "skill_version": { "type": "string", "minLength": 1 },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_schema_md", "target_schema_md", "sttm_xlsx", "udf_md", "folder_hierarchy_md"],
+      "properties": {
+        "source_schema_md": { "$ref": "#/$defs/input_ref" },
+        "target_schema_md": { "$ref": "#/$defs/input_ref" },
+        "sttm_xlsx": { "$ref": "#/$defs/input_ref" },
+        "udf_md": { "$ref": "#/$defs/input_ref" },
+        "folder_hierarchy_md": { "$ref": "#/$defs/input_ref" }
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "generated_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "hash"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "input_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "hash"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

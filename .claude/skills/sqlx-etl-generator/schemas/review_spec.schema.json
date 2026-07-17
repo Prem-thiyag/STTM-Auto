@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/review_spec.schema.json",
+  "title": "Review Specification",
+  "description": "The rules Review validates against. Produced by the Artifact Generator during Generate, so Review never invents its own criteria. Review reads this file and produces review_report.json; it never writes here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_at", "checks"],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^C[0-9]+$" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "file_exists",
+              "column_coverage",
+              "udf_reference_valid",
+              "dependency_order_respected",
+              "no_needs_review_mappings",
+              "schema_cross_check"
+            ]
+          },
+          "optional": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true (used by schema_cross_check per ADR-001 §9), a failure to evaluate this check degrades review_report status to WARN, never FAIL."
+          }
+        }
+      }
+    }
+  }
+}

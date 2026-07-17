@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/dependency_graph.schema.json",
+  "title": "Dependency Graph",
+  "description": "Table/stage-level DAG produced by the Dependency Builder specialist. execution_order is the topologically sorted node list; Generate MUST abort before writing this file if the graph contains a cycle (see specialists/dependency-builder.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_at", "nodes", "edges", "execution_order"],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "table", "stage"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^.+\\.(read|process|write)$" },
+          "table": { "type": "string", "minLength": 1 },
+          "stage": { "type": "string", "enum": ["read", "process", "write"] }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "reason"],
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable justification, e.g. 'FK lookup: <column>'. Never omitted — this is what a reviewer reads to sanity-check ordering."
+          }
+        }
+      }
+    },
+    "execution_order": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "Topological sort of nodes[].id. Every id in nodes must appear here exactly once."
+    }
+  }
+}

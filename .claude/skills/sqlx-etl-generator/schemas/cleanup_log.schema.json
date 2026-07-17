@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sqlx-etl-generator/schemas/cleanup_log.schema.json",
+  "title": "Cleanup Log",
+  "description": "Append-only audit trail owned exclusively by the Clean plan, mirroring execution_log.json. Records that a human confirmed a cleanup object was handled — Clean never runs it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entries"],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object", "confirmed_at", "confirmed_by", "status"],
+        "properties": {
+          "object": { "type": "string", "minLength": 1 },
+          "confirmed_at": { "type": "string", "format": "date-time" },
+          "confirmed_by": { "type": "string", "const": "user" },
+          "status": { "type": "string", "enum": ["confirmed", "skipped"] }
+        }
+      }
+    }
+  }
+}
