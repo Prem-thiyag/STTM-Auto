@@ -1,0 +1,40 @@
+name: Task
+description: Create a development task.
+title: "[Task]: "
+labels: ["task"]
+
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Task Summary
+      placeholder: Short description
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Describe the work to be completed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: What conditions must be met before this task is considered complete?
+      placeholder: |
+        - [ ] Requirement 1
+        - [ ] Requirement 2
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical

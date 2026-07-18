@@ -1,0 +1,27 @@
+name: Execution Ticket
+description: Create a new execution run ticket.
+title: "[Execution]: "
+labels: ["execution"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Ticket Description
+      description: Describe the execution request in detail.
+      placeholder: |
+        Describe the execution, objective, inputs, expected outputs, and any additional context.
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Attachments
+
+        Drag and drop or paste up to **5 supporting files** (documents, screenshots, images, archives, etc.) into the comment box below after creating the ticket.
+
+        GitHub will automatically:
+        - Assign the Ticket ID
+        - Record the creator
+        - Record the creation timestamp
