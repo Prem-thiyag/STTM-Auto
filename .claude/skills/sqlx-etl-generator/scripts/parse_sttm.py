@@ -65,6 +65,7 @@ REQUIRED_HEADERS = {
         "transformation logic",
         "transformation_logic",
         "transformation note",
+        "transformation logic / udf call",
         "mapping logic",
         "business logic",
     ],
