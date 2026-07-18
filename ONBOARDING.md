@@ -11,6 +11,13 @@ present? generated? reviewed? Postgres reachable? seeded? executed?
 validated?) and tells you which of the steps below to run next, instead of
 you having to work it out by re-reading this whole document.
 
+**Open this `STTM-Auto` folder itself as the VS Code workspace root — not a
+parent folder.** Claude Code only discovers `.claude/commands/` relative to
+the folder VS Code actually has open. Opening a parent directory (with
+`STTM-Auto` as a subfolder) means none of the slash commands show up at
+all — `/start-sttm` included — even if a terminal inside that VS Code window
+is `cd`'d into `STTM-Auto` and looks correct.
+
 ## 1. Install prerequisites
 
 - **Python 3.11+**

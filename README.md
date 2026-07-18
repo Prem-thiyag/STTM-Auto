@@ -69,6 +69,13 @@ Defined in [`.claude/commands/`](.claude/commands/); each is a thin wrapper —
 
 ## Prerequisites
 
+**Open this `STTM-Auto` folder itself as the VS Code workspace root — not a
+parent folder.** Claude Code only discovers `.claude/commands/` relative to
+the folder VS Code actually has open; if you open a parent directory (e.g.
+`STTM-Auto`'s containing folder) with `STTM-Auto` as a subfolder, none of the
+slash commands (`/start-sttm`, `/generate`, etc.) will show up, even though a
+terminal `cd`'d into `STTM-Auto` looks correct.
+
 - Python 3.11+
 - PostgreSQL (tested against 17), reachable with a superuser or equivalent role
 - `pip install -r engine/requirements.txt` and
