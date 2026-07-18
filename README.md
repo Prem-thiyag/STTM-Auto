@@ -76,6 +76,11 @@ Defined in [`.claude/commands/`](.claude/commands/); each is a thin wrapper —
 - Connection details available either via a `postgres`-named entry in `.mcp.json`
   or the standard `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` environment
   variables (see `engine/postgres.resolve_connection_config` — never hardcoded)
+- **Node.js (with `npm`/`npx`)** — only needed if you're using the Postgres
+  MCP server (`.mcp.json`), which loads its connection string via `envmcp`
+  (`npm install -g envmcp`, one-time — see `ONBOARDING.md` §2). Not needed
+  for the Python side (`/seed`, `/execute`, `/validate`, `/start-sttm`,
+  `/generate`), which only ever uses `.env`.
 
 **Local-only config files you create yourself after cloning** — none of
 these are tracked in Git (all gitignored), so a fresh clone has none of
@@ -83,9 +88,9 @@ them:
 
 | File | Needed for | Notes |
 |---|---|---|
-| `.env` | Postgres credentials | `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`. Auto-loaded by every command that touches Postgres (`/seed`, `/execute`, `/validate`, `/start-sttm`) via `python-dotenv`. Simplest option — see `ONBOARDING.md` §2. |
+| `.env` | Postgres credentials for the Python side | `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`. Auto-loaded by every Python command that touches Postgres (`/seed`, `/execute`, `/validate`, `/start-sttm`) via `python-dotenv`. This is what the engine actually reads — see `ONBOARDING.md` §2. |
 | `.mcp.json` | Optional: Postgres via an MCP server instead of `.env` | Claude Code's MCP server config; a `postgres`-named entry here is preferred over `.env` if present. Not required if `.env` already has what you need. |
-| `.env.mcp` (or similar) | Optional: your MCP client's own secrets | Only relevant if your MCP server needs a separate env file to launch — a convention of your MCP client, not this repository's own code. |
+| `.env.mcp` | Required only if using the Postgres MCP server | Holds the `DATABASE_URL` the MCP server connects with, loaded by `envmcp` (see the Node.js prerequisite above) — a separate credential path from `.env`, which the Python application never reads. |
 
 New to the repo? Start with [`ONBOARDING.md`](ONBOARDING.md) — it walks through
 cloning, configuring PostgreSQL, and running the full cycle end to end. Or

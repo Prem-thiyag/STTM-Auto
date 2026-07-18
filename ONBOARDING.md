@@ -25,6 +25,11 @@ you having to work it out by re-reading this whole document.
   (`psycopg2-binary`, `python-dotenv`, `jinja2`, `jsonschema`, `openpyxl`.)
 - `psql` on your `PATH` — `/execute` and `/seed` shell out to it directly for
   bootstrap SQL and cross-database FDW setup.
+- **Node.js (with `npm`/`npx`) — only if you're using the Postgres MCP
+  server.** The MCP server reads its connection string via `envmcp`, an npm
+  package, from `.env.mcp` (see §2 below). Skip this if you're only using
+  `.env` for the Python side — nothing under `engine/` or
+  `.claude/skills/` needs Node.js at all.
 
 ## 2. Give PostgreSQL connection details
 
@@ -69,12 +74,33 @@ shape — this repository only reads it for a `postgres`-named entry's `env`
 block (`PGHOST`/`PGUSER`/`PGPASSWORD`/`PGPORT`, or the `POSTGRES_*`
 equivalents).
 
-**`.env.mcp`**, or any other MCP-client-specific env file — if your MCP
-client needs a separate file to launch a Postgres MCP server (keeping those
-secrets out of `.mcp.json` itself), that's a convention of your MCP client,
-not this repository: nothing under `engine/` or `.claude/skills/` reads
-`.env.mcp` directly. Check your MCP server's own setup instructions for what
-it expects there.
+### Using the Postgres MCP server: one-time `envmcp` setup
+
+This project's Postgres MCP server (`.mcp.json`) loads its connection string
+via `envmcp`, an npm package that reads `.env.mcp` and injects it into the
+MCP server process. This is entirely separate from `.env` above — the two
+are not interchangeable:
+
+- **`.env`** — read by the Python application (`engine/`) directly, via
+  `python-dotenv`. `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`.
+- **`.env.mcp`** — read by `envmcp` for the MCP server only. Holds a single
+  `DATABASE_URL`:
+  ```
+  DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
+  ```
+
+Before using the Postgres MCP server for the first time, install `envmcp`
+globally (one-time — not a per-project dependency, so there's no
+`package.json`/`npm install` step in this repository itself):
+
+```
+npm install -g envmcp
+```
+
+If you're only using `.env` for the Python-side commands (`/seed`,
+`/execute`, `/validate`, `/start-sttm`, `/generate`) and never invoke the
+Postgres MCP server, you can skip Node.js and `envmcp` entirely — they're
+unrelated to the Python application.
 
 ## 3. Provide the five input documents
 
