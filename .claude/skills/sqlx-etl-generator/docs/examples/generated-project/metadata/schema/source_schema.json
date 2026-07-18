@@ -1,5 +1,6 @@
 {
   "database": "source_db",
+  "schema": "source",
   "generated_at": "2026-07-17T12:00:00Z",
   "tables": [
     {

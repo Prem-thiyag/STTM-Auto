@@ -14,9 +14,16 @@ config {
 -- Load strategy: full_load
 -- Reads through: fdw_intermediate_db (foreign schema set up in bootstrap/db/01_init)
 
-TRUNCATE TABLE DIM_CUSTOMER;
+-- CASCADE: DIM_CUSTOMER may be referenced by another target table's FK (e.g. a
+-- dimension referenced by a fact). Every target table is independently truncated and
+-- fully reloaded by its own write.sqlx under full_load, so a CASCADE-triggered truncate
+-- of a dependent table here is always safe -- that table gets its own truncate+reload
+-- when its own write.sqlx runs (see metadata/dependency/dependency_graph.json's
+-- execution_order). Without CASCADE, PostgreSQL refuses to truncate any table an FK
+-- references, regardless of whether the referencing table currently has rows.
+TRUNCATE TABLE warehouse.DIM_CUSTOMER CASCADE;
 
-INSERT INTO DIM_CUSTOMER (
+INSERT INTO warehouse.DIM_CUSTOMER (
     customer_key,
     full_name,
     status

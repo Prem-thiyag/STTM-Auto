@@ -189,6 +189,50 @@ target environment is on an older PostgreSQL, that's a `templates/sqlx/*.tmpl`
 / `render_sqlx.py` change (a `--pg-version` style flag), not something this
 skill currently handles.
 
+## Database schema/namespace is a resolved field, confirmed via a Generate checkpoint, never guessed
+
+Originally every generated database used the Postgres default schema (`public`)
+unconditionally — `scripts/gen_bootstrap.py` hardcoded `CREATE SCHEMA IF NOT
+EXISTS public;` for source, intermediate, and target alike, and no table
+reference anywhere in generated SQL was schema-qualified. This was a real gap:
+a project whose source/target documents describe tables living under real
+namespaces (e.g. `source.patient_master`, `warehouse.dim_patient`) had no way
+to express that, and a project that said nothing about schema silently landed
+in `public` with no signal that a choice had even been made.
+
+Fixed by adding a top-level, nullable `schema` field to
+`source_schema.schema.json` / `target_schema.schema.json`, and a
+`target_schema` field to `buildspec.schema.json` (copied from the resolved
+target schema, mirroring how `target_database` already works). `schema-parser.md`
+sets it from an explicit "Schema: X" line in the document if present, `null`
+otherwise — it never guesses `public`, `source`, `warehouse`, or anything else,
+consistent with this specialist's existing "never invent a name" rule for
+`database`. A `null` value is a precondition failure for every specialist
+after Schema Parser, resolved by a new step in `plans/generate.md` ("Checkpoint:
+confirm unresolved database/schema names"): after both Schema Parser runs
+complete, any unresolved database/schema value (including the intermediate
+database/schema, which isn't described by either input document at all) is
+batched into one `AskUserQuestion` call, offering `references/naming-conventions.md`'s
+documented defaults (`source` / `staging` / `warehouse`) as the recommended
+option — never applied silently. This is the same shape as two pre-existing
+patterns in this skill (an unresolvable input path: "ask the user" per
+`plans/generate.md`'s Preconditions; an unresolvable mapping: `NEEDS_REVIEW`
+below) — not a new escape hatch, a third instance of one.
+
+`scripts/gen_bootstrap.py` and `scripts/render_sqlx.py` both now require a
+resolved (non-null) schema and fail loudly (exit 2 / a buildspec validation
+error) if one reaches them unresolved — by design, these deterministic
+scripts have no way to ask a human themselves; resolution must already be
+done by the time they run. **One schema per database is a real, current
+limitation**, not a display choice: the schema IR has no way to put two
+tables from the same document under different namespaces. See
+`references/naming-conventions.md` "Database schema / namespace defaults" for
+the full default table and the FDW-alias interaction (the `fdw_<database>`
+local alias names the remote *database*, unaffected by this change; only the
+`CREATE FOREIGN TABLE ... OPTIONS (schema_name '...')` / `IMPORT FOREIGN
+SCHEMA ...` statements inside `bootstrap/` needed the real remote schema
+name).
+
 ## Duplicate mappings are flagged mechanically, resolved as `NEEDS_REVIEW`
 
 `scripts/parse_sttm.py` computes, per row, whether its
@@ -216,3 +260,40 @@ comment, naming exactly what will fail (any buildspec column with
 body — this is strictly a visibility improvement, not a new capability.
 The real project's `input/user_defined_functions.md` (signatures only, no
 bodies) is exactly the case this warning was built for.
+
+## `input/` is local-only; the repository's real project moved to `templates/sample-input/`
+
+Originally `input/` was tracked in Git, holding this repository's own real
+project (the pharma-hospital domain referenced throughout this document) —
+which made the repository project-centric: cloning it handed you someone
+else's input, not a blank slate matching `output/`'s already-local,
+gitignored model.
+
+Fixed by moving `input/`'s five files to a new tracked `templates/sample-input/`
+(history preserved via `git mv`) and making `input/` itself gitignored
+except a tracked `input/.gitkeep` placeholder — the same shape `output/`
+already had (`.gitignore`'s commented-out `output/*` / `!output/.gitkeep`
+pattern, now the real, active pattern for `input/`). Nothing about the
+five-document contract changed; only where the *tracked example* of it
+lives. Every reference elsewhere in this skill's docs to "the real project's
+`input/...`" describes what was true when written and is left as historical
+record, not updated to `templates/sample-input/...`.
+
+Added one new deterministic script, `scripts/check_input.py`, as the single
+place the five required filenames are declared — `plans/generate.md`'s
+Preconditions and the repository's `/start-sttm` command both delegate to it
+rather than each re-listing or re-checking the filenames themselves. It
+checks presence/non-emptiness for all five and, for the STTM workbook only,
+shells out to the already-existing `parse_sttm.py` (omitting `--output`) to
+catch a structurally broken workbook before any specialist runs — it does
+not attempt semantic validation of the four markdown documents' content,
+since that's the Schema Parser / STTM Parser / Artifact Generator
+specialists' job (an LLM step), consistent with this project's existing
+"never fabricate, never guess" rule.
+
+The repository's new `/start-sttm` health-check command (`engine/healthcheck.py`)
+determines which databases a generated project actually uses by reading the
+distinct `database` values off its own `execution_plan.json` (via
+`engine.planner.ExecutionPlanner`, already validated) rather than assuming
+any fixed set of names — consistent with "Database schema/namespace is a
+resolved field... never guessed," above.

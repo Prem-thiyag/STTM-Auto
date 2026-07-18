@@ -5,11 +5,15 @@
   "description": "Normalized representation of the target_schema.md input, produced by the Schema Parser specialist. One instance per Generate run. Structurally identical to source_schema.schema.json by design (both are schema descriptions); kept as a separate file because they are separate artifacts with separate producers/consumers per the ownership model.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["database", "generated_at", "tables"],
+  "required": ["database", "schema", "generated_at", "tables"],
   "properties": {
     "database": {
       "type": "string",
       "description": "Logical name of the target database as it will be referenced in generated SQLX. Must originate from the input documents, never invented."
+    },
+    "schema": {
+      "type": ["string", "null"],
+      "description": "Namespace every table in this document lives under inside `database` (e.g. Postgres schema). The Schema Parser sets this only when the document states it explicitly (e.g. a 'Schema: X' line) -- null otherwise, never a guessed value. A null here is a precondition failure for every specialist after Schema Parser: the Generate plan must resolve it (asking the user to confirm a default or supply one, see plans/generate.md's confirmation checkpoint and references/naming-conventions.md's default) and rewrite this file with a non-null value before Generate continues."
     },
     "generated_at": {
       "type": "string",

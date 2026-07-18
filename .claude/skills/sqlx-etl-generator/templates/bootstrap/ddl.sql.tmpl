@@ -6,7 +6,7 @@
 -- Run once per environment. Safe to re-run: every statement is idempotent.
 
 {% for t in tables %}
-CREATE TABLE IF NOT EXISTS {{ t.name }} (
+CREATE TABLE IF NOT EXISTS {{ schema }}.{{ t.name }} (
 {{ t.ddl_body }}
 );
 

@@ -73,7 +73,7 @@ class BootstrapStepResult:
         self.stderr = stderr
 
 
-def _admin_connection(config: ConnectionConfig):
+def admin_connection(config: ConnectionConfig):
     if psycopg2 is None:
         raise DatabaseConnectionError(
             "psycopg2 is not installed. Install with: pip install -r engine/requirements.txt"
@@ -96,7 +96,7 @@ def reset_databases(
     if unknown:
         raise ValueError(f"refusing to reset non-pipeline database(s): {sorted(unknown)}")
 
-    conn = _admin_connection(config)
+    conn = admin_connection(config)
     reset: list[str] = []
     try:
         with conn.cursor() as cur:
@@ -163,6 +163,12 @@ def run_bootstrap(project_root: Path, config: ConnectionConfig) -> list[Bootstra
 
 
 def main() -> int:
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()  # repo-root .env -> os.environ, if present; never overwrites already-set vars
+    except ImportError:  # pragma: no cover - exercised only when python-dotenv truly isn't installed
+        pass
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["seed", "bootstrap"])
     parser.add_argument("project_root", nargs="?", default="output", type=Path)

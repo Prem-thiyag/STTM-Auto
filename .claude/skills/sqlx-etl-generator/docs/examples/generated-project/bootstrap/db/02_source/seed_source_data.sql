@@ -10,11 +10,11 @@
 -- Fill in real or synthetic values below, or supply a sample-data input in a future run
 -- if this input type is added (see docs/FUTURE_ENHANCEMENTS.md).
 
--- TODO: populate sample rows for CUSTOMER (customer_id, first_name, last_name, status, created_at)
--- INSERT INTO CUSTOMER (customer_id, first_name, last_name, status, created_at) VALUES
+-- TODO: populate sample rows for source.CUSTOMER (customer_id, first_name, last_name, status, created_at)
+-- INSERT INTO source.CUSTOMER (customer_id, first_name, last_name, status, created_at) VALUES
 --     (/* 5 value(s) here */);
 
--- TODO: populate sample rows for CUSTOMER_ORDER (order_id, customer_id, order_date, amount, status)
--- INSERT INTO CUSTOMER_ORDER (order_id, customer_id, order_date, amount, status) VALUES
+-- TODO: populate sample rows for source.CUSTOMER_ORDER (order_id, customer_id, order_date, amount, status)
+-- INSERT INTO source.CUSTOMER_ORDER (order_id, customer_id, order_date, amount, status) VALUES
 --     (/* 5 value(s) here */);
 

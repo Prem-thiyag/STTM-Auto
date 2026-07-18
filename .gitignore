@@ -37,9 +37,18 @@ htmlcov/
 .env.*
 !.env.example
 
+# Secrets / Certificates
 *.pem
 *.key
 *.crt
+
+# ============================================================
+# Claude / MCP
+# ============================================================
+.mcp.json
+.claude/tmp/
+.claude/cache/
+.claude/settings.local.json
 
 # ============================================================
 # Logs
@@ -59,9 +68,16 @@ dist/
 # ============================================================
 output/
 
-# If you prefer to keep the folder structure, use this instead:
+# If you prefer to keep the folder structure:
 # output/*
 # !output/.gitkeep
+
+# ============================================================
+# User-provided ETL input documents (local only -- see
+# templates/sample-input/ for a tracked reference sample)
+# ============================================================
+input/*
+!input/.gitkeep
 
 # ============================================================
 # Temporary Files
@@ -93,12 +109,6 @@ desktop.ini
 # Node (only if you add JS tooling later)
 # ============================================================
 node_modules/
-
-# ============================================================
-# Claude / AI Temporary Files
-# ============================================================
-.claude/tmp/
-.claude/cache/
 
 # ============================================================
 # Archives

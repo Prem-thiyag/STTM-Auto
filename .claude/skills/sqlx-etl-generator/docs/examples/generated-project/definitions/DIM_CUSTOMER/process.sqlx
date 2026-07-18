@@ -19,4 +19,4 @@ config {
 
 -- No LOOKUP-typed columns in this table's build specification; no cross-table
 -- resolution is required at process time.
-SELECT count(*) AS row_count FROM stg_dim_customer;
+SELECT count(*) AS row_count FROM staging.stg_dim_customer;

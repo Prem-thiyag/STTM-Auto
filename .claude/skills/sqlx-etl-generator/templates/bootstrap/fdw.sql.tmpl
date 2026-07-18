@@ -25,7 +25,7 @@ CREATE USER MAPPING FOR CURRENT_USER
 
 CREATE SCHEMA IF NOT EXISTS {{ foreign_schema }};
 
-IMPORT FOREIGN SCHEMA public
+IMPORT FOREIGN SCHEMA {{ remote_schema }}
     LIMIT TO ({{ tables | join(', ') }})
     FROM SERVER {{ server_name }}
     INTO {{ foreign_schema }};

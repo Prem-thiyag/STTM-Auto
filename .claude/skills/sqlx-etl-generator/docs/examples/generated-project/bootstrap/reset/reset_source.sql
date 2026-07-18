@@ -6,5 +6,5 @@
 -- (children before parents) so no FK violation is possible regardless of run order.
 -- This script only ever runs when a human executes it manually — see bootstrap/README.md.
 
-TRUNCATE TABLE CUSTOMER CASCADE;
-TRUNCATE TABLE CUSTOMER_ORDER CASCADE;
+TRUNCATE TABLE source.CUSTOMER CASCADE;
+TRUNCATE TABLE source.CUSTOMER_ORDER CASCADE;

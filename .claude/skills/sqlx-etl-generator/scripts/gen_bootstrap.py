@@ -81,14 +81,20 @@ def fdw_alias(database: str) -> str:
     return f"fdw_{database}"
 
 
-def enrich_tables(schema_ir: dict) -> list[dict]:
+def enrich_tables(schema_ir: dict, schema: str) -> list[dict]:
     """Add primary_key_columns / foreign_keys derived views, and a pre-joined
     ddl_body string, to each table -- computed purely from the columns already
     present in the schema IR, no new information. ddl_body is built here rather
     than with a comma-chaining Jinja loop for the same reason render_sqlx.py
     pre-joins its column lists: Jinja2's trim_blocks strips the newline after
     every block tag, including endif, so a loop ending each line in
-    "{% if not loop.last %},{% endif %}" silently collapses onto one line."""
+    "{% if not loop.last %},{% endif %}" silently collapses onto one line.
+
+    `schema` qualifies REFERENCES targets: every table in one schema_ir shares
+    the same resolved namespace (one schema per database, see
+    references/naming-conventions.md), so a same-file FK reference is always
+    within that one schema -- never a cross-database reference, which always
+    goes through postgres_fdw instead and is never expressed as a DDL FOREIGN KEY."""
     enriched = []
     for table in schema_ir["tables"]:
         pk_columns = [c["name"] for c in table["columns"] if c["primary_key"]]
@@ -111,7 +117,7 @@ def enrich_tables(schema_ir: dict) -> list[dict]:
         for fk in foreign_keys:
             lines.append(
                 f"    CONSTRAINT {table['name']}_{fk['column']}_fk FOREIGN KEY ({fk['column']}) "
-                f"REFERENCES {fk['references_table']} ({fk['references_column']})"
+                f"REFERENCES {schema}.{fk['references_table']} ({fk['references_column']})"
             )
         ddl_body = ",\n".join(lines)
 
@@ -222,6 +228,13 @@ def main() -> int:
     parser.add_argument("--templates-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--intermediate-database", default="intermediate_db")
+    parser.add_argument(
+        "--intermediate-schema", default="staging",
+        help="Namespace staging tables live under inside --intermediate-database. Always an "
+             "explicit renderer parameter, never derived from source_schema.json or "
+             "target_schema.json -- the intermediate database isn't described by either "
+             "input document (same reasoning as --intermediate-database itself).",
+    )
     parser.add_argument("--project-name", default="generated-etl-project")
     parser.add_argument(
         "--buildspecs-dir", type=Path, default=None,
@@ -234,8 +247,25 @@ def main() -> int:
     source_ir = json.loads(args.source_schema.read_text(encoding="utf-8"))
     target_ir = json.loads(args.target_schema.read_text(encoding="utf-8"))
 
-    source_tables = enrich_tables(source_ir)
-    target_tables = enrich_tables(target_ir)
+    for ir, label, path in (
+        (source_ir, "source", args.source_schema),
+        (target_ir, "target", args.target_schema),
+    ):
+        if not ir.get("schema"):
+            print(
+                f"ERROR: {path} has no resolved 'schema' value (null or missing). Generate's "
+                f"confirmation checkpoint must resolve every schema IR's 'schema' field -- "
+                f"asking the user to confirm a default or supply one -- before this script "
+                f"ever runs; it never guesses a {label} schema itself.",
+                file=sys.stderr,
+            )
+            return 2
+
+    source_schema_name = source_ir["schema"]
+    target_schema_name = target_ir["schema"]
+
+    source_tables = enrich_tables(source_ir, source_schema_name)
+    target_tables = enrich_tables(target_ir, target_schema_name)
 
     env = Environment(
         loader=FileSystemLoader(str(args.templates_dir)),
@@ -251,52 +281,61 @@ def main() -> int:
     # db/02_source
     render_and_write(
         env, "ddl.sql.tmpl",
-        {"database": source_ir["database"], "schema_source": args.source_schema.name, "tables": source_tables},
+        {"database": source_ir["database"], "schema": source_schema_name,
+         "schema_source": args.source_schema.name, "tables": source_tables},
         out / "db" / "02_source" / "ddl_source_tables.sql",
     )
     render_and_write(
         env, "seed_stub.sql.tmpl",
-        {"database": source_ir["database"], "schema_source": args.source_schema.name, "tables": source_tables},
+        {"database": source_ir["database"], "schema": source_schema_name,
+         "schema_source": args.source_schema.name, "tables": source_tables},
         out / "db" / "02_source" / "seed_source_data.sql",
     )
     for t in source_tables:
         manifest_objects.append({
-            "database": source_ir["database"], "object": t["name"], "type": "table",
+            "database": source_ir["database"], "object": f"{source_schema_name}.{t['name']}", "type": "table",
             "script": "bootstrap/db/02_source/ddl_source_tables.sql",
-            "command": f"TRUNCATE TABLE {t['name']} CASCADE;",
+            "command": f"TRUNCATE TABLE {source_schema_name}.{t['name']} CASCADE;",
         })
 
     # db/04_target
     render_and_write(
         env, "ddl.sql.tmpl",
-        {"database": target_ir["database"], "schema_source": args.target_schema.name, "tables": target_tables},
+        {"database": target_ir["database"], "schema": target_schema_name,
+         "schema_source": args.target_schema.name, "tables": target_tables},
         out / "db" / "04_target" / "ddl_target_tables.sql",
     )
     for t in target_tables:
         manifest_objects.append({
-            "database": target_ir["database"], "object": t["name"], "type": "table",
+            "database": target_ir["database"], "object": f"{target_schema_name}.{t['name']}", "type": "table",
             "script": "bootstrap/db/04_target/ddl_target_tables.sql",
-            "command": f"TRUNCATE TABLE {t['name']} CASCADE;",
+            "command": f"TRUNCATE TABLE {target_schema_name}.{t['name']} CASCADE;",
         })
 
     # reset/
     render_and_write(
         env, "reset.sql.tmpl",
-        {"database": source_ir["database"], "schema_source": args.source_schema.name,
+        {"database": source_ir["database"], "schema": source_schema_name,
+         "schema_source": args.source_schema.name,
          "reset_order": topological_reset_order(source_tables)},
         out / "reset" / "reset_source.sql",
     )
     render_and_write(
         env, "reset.sql.tmpl",
-        {"database": target_ir["database"], "schema_source": args.target_schema.name,
+        {"database": target_ir["database"], "schema": target_schema_name,
+         "schema_source": args.target_schema.name,
          "reset_order": topological_reset_order(target_tables)},
         out / "reset" / "reset_target.sql",
     )
 
     # db/01_init
     schemas_sql = "\n".join(
-        f"-- {db}: run against that database\nCREATE SCHEMA IF NOT EXISTS public;\n"
-        for db in [source_ir["database"], args.intermediate_database, target_ir["database"]]
+        f"-- {db}: run against that database\nCREATE SCHEMA IF NOT EXISTS {schema};\n"
+        for db, schema in [
+            (source_ir["database"], source_schema_name),
+            (args.intermediate_database, args.intermediate_schema),
+            (target_ir["database"], target_schema_name),
+        ]
     )
     init_dir = out / "db" / "01_init"
     init_dir.mkdir(parents=True, exist_ok=True)
@@ -312,6 +351,7 @@ def main() -> int:
         {
             "local_database": args.intermediate_database,
             "remote_database": source_ir["database"],
+            "remote_schema": source_schema_name,
             "foreign_schema": fdw_alias(source_ir["database"]),
             "server_name": f"{fdw_alias(source_ir['database'])}_srv",
             "tables": [t["name"] for t in source_tables],
@@ -330,6 +370,7 @@ def main() -> int:
             {
                 "local_database": target_ir["database"],
                 "remote_database": args.intermediate_database,
+                "remote_schema": args.intermediate_schema,
                 "foreign_schema": fdw_alias(args.intermediate_database),
                 "server_name": f"{fdw_alias(args.intermediate_database)}_srv",
                 "tables": staging_tables,
@@ -346,9 +387,10 @@ def main() -> int:
             {
                 "local_database": target_ir["database"],
                 "remote_database": args.intermediate_database,
+                "remote_schema": args.intermediate_schema,
                 "foreign_schema": fdw_alias(args.intermediate_database),
                 "server_name": f"{fdw_alias(args.intermediate_database)}_srv",
-                "tables": ["<staging tables are named per metadata/build/*.buildspec.json:staging_table -- import per-table after Generate runs, e.g. IMPORT FOREIGN SCHEMA public LIMIT TO (stg_...) ...>"],
+                "tables": [f"<staging tables are named per metadata/build/*.buildspec.json:staging_table -- import per-table after Generate runs, e.g. IMPORT FOREIGN SCHEMA {args.intermediate_schema} LIMIT TO (stg_...) ...>"],
                 "script_name": "03_create_fdw_target_to_intermediate.sql",
             },
             init_dir / "03_create_fdw_target_to_intermediate.sql",
@@ -365,6 +407,7 @@ def main() -> int:
         {
             "local_database": args.intermediate_database,
             "remote_database": target_ir["database"],
+            "remote_schema": target_schema_name,
             "foreign_schema": fdw_alias(target_ir["database"]),
             "server_name": f"{fdw_alias(target_ir['database'])}_srv",
             "tables": [foreign_table_shape(t) for t in target_tables],
@@ -381,7 +424,7 @@ def main() -> int:
         f"-- Run against: {args.intermediate_database}\n"
         "-- Staging tables themselves are created by each table's read.sqlx at run time\n"
         "-- (CREATE TABLE IF NOT EXISTS), not here -- this script only prepares the namespace.\n\n"
-        "CREATE SCHEMA IF NOT EXISTS public;\n",
+        f"CREATE SCHEMA IF NOT EXISTS {args.intermediate_schema};\n",
         encoding="utf-8", newline="\n",
     )
 
@@ -432,9 +475,13 @@ def main() -> int:
         {
             "project_name": args.project_name,
             "source_database": source_ir["database"],
+            "source_schema": source_schema_name,
             "intermediate_database": args.intermediate_database,
+            "intermediate_schema": args.intermediate_schema,
             "target_database": target_ir["database"],
-            "tables": [t["name"] for t in source_tables] + [t["name"] for t in target_tables],
+            "target_schema": target_schema_name,
+            "tables": [f"{source_schema_name}.{t['name']}" for t in source_tables]
+            + [f"{target_schema_name}.{t['name']}" for t in target_tables],
         },
         out / "README.md",
     )

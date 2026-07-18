@@ -5,7 +5,7 @@
 -- Deterministic projection of the schema IR — no fabricated structure, no business logic.
 -- Run once per environment. Safe to re-run: every statement is idempotent.
 
-CREATE TABLE IF NOT EXISTS CUSTOMER (
+CREATE TABLE IF NOT EXISTS source.CUSTOMER (
     customer_id integer NOT NULL,
     first_name varchar(100) NOT NULL,
     last_name varchar(100) NOT NULL,
@@ -14,13 +14,13 @@ CREATE TABLE IF NOT EXISTS CUSTOMER (
     CONSTRAINT CUSTOMER_pk PRIMARY KEY (customer_id)
 );
 
-CREATE TABLE IF NOT EXISTS CUSTOMER_ORDER (
+CREATE TABLE IF NOT EXISTS source.CUSTOMER_ORDER (
     order_id integer NOT NULL,
     customer_id integer NOT NULL,
     order_date date NOT NULL,
     amount numeric(12,2) NOT NULL,
     status varchar(20) NOT NULL,
     CONSTRAINT CUSTOMER_ORDER_pk PRIMARY KEY (order_id),
-    CONSTRAINT CUSTOMER_ORDER_customer_id_fk FOREIGN KEY (customer_id) REFERENCES CUSTOMER (customer_id)
+    CONSTRAINT CUSTOMER_ORDER_customer_id_fk FOREIGN KEY (customer_id) REFERENCES source.CUSTOMER (customer_id)
 );
 

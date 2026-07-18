@@ -17,6 +17,6 @@ config {
 -- All other column types (DIRECT, EXPRESSION, UDF, CONSTANT) were already resolved by
 -- read.sqlx and require no further processing here.
 
-UPDATE stg_fact_order
+UPDATE staging.stg_fact_order
 SET customer_key = (SELECT dc.customer_key FROM fdw_target_db.dim_customer dc WHERE dc.customer_key = stg_fact_order._lookup_customer_key);
-SELECT count(*) AS row_count FROM stg_fact_order;
+SELECT count(*) AS row_count FROM staging.stg_fact_order;

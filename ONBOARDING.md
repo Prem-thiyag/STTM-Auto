@@ -5,6 +5,12 @@ clone, ending with a real, validated ETL run against PostgreSQL. If you just
 want the concept overview, read [`README.md`](README.md) first; this document
 is the practical "do this, then this."
 
+**Lost partway through, or picking this back up later?** Run `/start-sttm`
+at any point — it's a read-only check of exactly where you are (input
+present? generated? reviewed? Postgres reachable? seeded? executed?
+validated?) and tells you which of the steps below to run next, instead of
+you having to work it out by re-reading this whole document.
+
 ## 1. Install prerequisites
 
 - **Python 3.11+**
@@ -16,29 +22,65 @@ is the practical "do this, then this."
   pip install -r engine/requirements.txt
   pip install -r .claude/skills/sqlx-etl-generator/scripts/requirements.txt
   ```
-  (`psycopg2-binary`, `jinja2`, `jsonschema`, `openpyxl`.)
+  (`psycopg2-binary`, `python-dotenv`, `jinja2`, `jsonschema`, `openpyxl`.)
 - `psql` on your `PATH` — `/execute` and `/seed` shell out to it directly for
   bootstrap SQL and cross-database FDW setup.
 
 ## 2. Give PostgreSQL connection details
 
-Nothing in this repository ever hardcodes a credential. Connection details are
-resolved (`engine/postgres.py`'s `resolve_connection_config`), in order, from:
+Nothing in this repository ever hardcodes a credential, and **none of the
+files below are tracked in Git** — every one is gitignored, so a fresh clone
+has none of them and you create them yourself, once, locally. Connection
+details are resolved by `engine/postgres.py`'s `resolve_connection_config`,
+in order, from:
 
 1. A `postgres`-named entry in `.mcp.json` at the repo root, or
 2. The standard environment variables: `PGHOST`, `PGPORT` (default `5432`),
    `PGUSER`, `PGPASSWORD`.
 
-For a local run, the simplest option is exporting the four environment
-variables in whatever shell you invoke commands from:
+**`.env`** (repo root) — the simplest option, and the one this project is set
+up for: every command that touches Postgres (`/seed`, `/execute`,
+`/validate`, `/start-sttm`) auto-loads it via `python-dotenv` before doing
+anything else (`load_dotenv()` — never overwrites a variable already set in
+your actual shell). Create it yourself:
+
+```
+PGHOST=localhost
+PGPORT=5432
+PGUSER=postgres
+PGPASSWORD=<your password>
+```
+
+If you'd rather not keep credentials in a file, exporting the same four
+variables in whatever shell you invoke commands from works identically
+(`.env` only pre-populates the environment — nothing distinguishes the two
+once `resolve_connection_config` runs):
 
 ```
 export PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=<your password>
 ```
 
+**`.mcp.json`** (repo root) — Claude Code's own MCP server config. Only
+needed if you're running a Postgres MCP server for this project; if a
+`postgres`-named entry is present there, `resolve_connection_config` prefers
+it over `.env`/environment variables. Not required if `.env` already has
+what you need. See Claude Code's own MCP documentation for this file's
+shape — this repository only reads it for a `postgres`-named entry's `env`
+block (`PGHOST`/`PGUSER`/`PGPASSWORD`/`PGPORT`, or the `POSTGRES_*`
+equivalents).
+
+**`.env.mcp`**, or any other MCP-client-specific env file — if your MCP
+client needs a separate file to launch a Postgres MCP server (keeping those
+secrets out of `.mcp.json` itself), that's a convention of your MCP client,
+not this repository: nothing under `engine/` or `.claude/skills/` reads
+`.env.mcp` directly. Check your MCP server's own setup instructions for what
+it expects there.
+
 ## 3. Provide the five input documents
 
-Everything the generator needs lives in `input/`:
+`input/` is a **local working directory** — gitignored except a `.gitkeep`
+placeholder, so a fresh clone starts with nothing in it. Everything the
+generator needs goes there:
 
 | File | What it describes |
 |---|---|
@@ -48,10 +90,16 @@ Everything the generator needs lives in `input/`:
 | `user_defined_functions.md` | Any UDFs your mappings reference — **include the actual SQL body in a fenced ` ```sql ` block**, not just the signature. A UDF with no body compiles fine but fails the moment the pipeline actually calls it. |
 | `folder_hierarchy.md` | Project name / expected output layout |
 
-If you're adapting this repo to a new domain, replace these five files with
-your own — nothing in `.claude/skills/sqlx-etl-generator/{specialists,templates,scripts}/`
-names a business table, column, or domain term. See
+Fastest way to see the pipeline work: copy the tracked reference sample in
+[`templates/sample-input/`](templates/sample-input/) into `input/` —
+`cp templates/sample-input/* input/` — and run `/generate`. To build your
+own project, put your own five files there instead — nothing in
+`.claude/skills/sqlx-etl-generator/{specialists,templates,scripts}/` names a
+business table, column, or domain term. See
 `.claude/skills/sqlx-etl-generator/docs/README.md` for the full input format.
+`/generate` (and `/start-sttm`, see below) both check for all five files
+being present and non-empty before doing anything else, and will tell you
+exactly what's missing rather than failing deep into the pipeline.
 
 ## 4. Run the cycle
 

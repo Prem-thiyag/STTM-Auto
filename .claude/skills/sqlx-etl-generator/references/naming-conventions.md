@@ -6,6 +6,36 @@ conventions are infrastructure-level (databases, foreign schemas) or structural
 (IDs, file paths) — none of them are domain business terms, so they apply unchanged
 regardless of what source/target tables the user's documents describe.
 
+## Database schema / namespace defaults
+
+Every table this skill generates lives under exactly one namespace (e.g. a
+Postgres schema) per database — one for the whole source document, one for the
+whole target document, one for the intermediate database. `source_schema.json`
+and `target_schema.json` each carry a single top-level `schema` field (not
+per-table) for exactly this reason. When an input document doesn't state its
+schema explicitly, and the user doesn't override it at Generate's confirmation
+checkpoint (`plans/generate.md`), the recommended defaults are:
+
+| Database | Default schema |
+|---|---|
+| Source | `source` |
+| Intermediate | `staging` |
+| Target | `warehouse` |
+
+These are recommendations offered at the confirmation checkpoint, never
+silently applied — see `specialists/schema-parser.md` (never guesses a schema)
+and `plans/generate.md`'s checkpoint (always asks before falling back to
+these). A document that states its own schema (e.g. a "Schema: X" line) always
+wins; these defaults only apply when nothing was stated and the user accepts
+the recommendation.
+
+**One schema per database is a real limitation, not a display convention.**
+This skill has no way to represent two tables from the same document living
+under different namespaces — if a real project's source or target genuinely
+spans multiple schemas per database, that's outside what this skill generates
+today (see `docs/EXTENSION_POINTS.md` for how a per-table override would be
+added).
+
 ## Foreign schema alias (cross-database reads via postgres_fdw)
 
 Every cross-database read in generated SQLX goes through a `postgres_fdw` foreign
@@ -19,7 +49,12 @@ fdw_<X>
 Example: reading `source_db` from `intermediate_db` uses the foreign schema
 `fdw_source_db`. This is implemented by `fdw_alias()` in `scripts/render_sqlx.py`
 and `scripts/gen_bootstrap.py` — both compute it the same way, so a buildspec never
-needs to spell it out itself.
+needs to spell it out itself. The alias names the remote *database*, not the remote
+schema/namespace within it (see "Database schema / namespace defaults" above) —
+this only works because this skill assumes exactly one schema per database; the
+remote schema name itself is only ever needed inside a `CREATE FOREIGN TABLE ...
+OPTIONS (schema_name '...')` / `IMPORT FOREIGN SCHEMA ...` statement in
+`bootstrap/`, never inside the local alias a buildspec references.
 
 **The Mapping Resolver must use this convention directly** when writing any
 `joins[].on` predicate or `columns[].expression` in a buildspec that references a

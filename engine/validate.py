@@ -397,6 +397,12 @@ def run(project_root: Path, skill_root: Path = DEFAULT_SKILL_ROOT) -> Validation
 
 
 def main() -> int:
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()  # repo-root .env -> os.environ, if present; never overwrites already-set vars
+    except ImportError:  # pragma: no cover - exercised only when python-dotenv truly isn't installed
+        pass
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project_root", nargs="?", default="output", type=Path)
     parser.add_argument("--skill-root", default=DEFAULT_SKILL_ROOT, type=Path)

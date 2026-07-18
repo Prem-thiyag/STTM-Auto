@@ -19,7 +19,11 @@ See `docs/examples/` for a complete, real, verified set of these five inputs
 during this skill's design, deliberately, to prove nothing domain-specific
 leaked into the reusable logic) and `docs/examples/generated-project/` for
 exactly what `Generate` produces from them, byte-for-byte, checked into the
-skill as a reference.
+skill as a reference. This fixture set exists purely to build and verify
+this skill (see `run-sqlx-etl-generator`) — for a sample to actually copy
+into `input/` and run yourself, see `templates/sample-input/` at the
+repository root instead (the pharma-hospital domain this skill's real,
+non-fixture project uses).
 
 ## Quickstart
 

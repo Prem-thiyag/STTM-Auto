@@ -3,4 +3,4 @@
 -- Staging tables themselves are created by each table's read.sqlx at run time
 -- (CREATE TABLE IF NOT EXISTS), not here -- this script only prepares the namespace.
 
-CREATE SCHEMA IF NOT EXISTS public;
+CREATE SCHEMA IF NOT EXISTS staging;

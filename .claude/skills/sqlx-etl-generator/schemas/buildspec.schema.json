@@ -6,12 +6,17 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "target_table", "target_database", "load_strategy", "source_tables",
+    "target_table", "target_database", "target_schema", "load_strategy", "source_tables",
     "staging_table", "columns", "joins", "filters", "grain", "mapping_refs"
   ],
   "properties": {
     "target_table": { "type": "string", "minLength": 1 },
     "target_database": { "type": "string", "minLength": 1 },
+    "target_schema": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Namespace target_table lives under inside target_database -- copied verbatim from target_schema.json's resolved (non-null) `schema` field. The SQLX Generator schema-qualifies every reference to target_table with this value; never re-derived or guessed here."
+    },
     "load_strategy": {
       "type": "string",
       "enum": ["full_load", "incremental", "scd2"],

@@ -25,7 +25,7 @@ CREATE USER MAPPING FOR CURRENT_USER
 
 CREATE SCHEMA IF NOT EXISTS fdw_intermediate_db;
 
-IMPORT FOREIGN SCHEMA public
-    LIMIT TO (<staging tables are named per metadata/build/*.buildspec.json:staging_table -- import per-table after Generate runs, e.g. IMPORT FOREIGN SCHEMA public LIMIT TO (stg_...) ...>)
+IMPORT FOREIGN SCHEMA staging
+    LIMIT TO (<staging tables are named per metadata/build/*.buildspec.json:staging_table -- import per-table after Generate runs, e.g. IMPORT FOREIGN SCHEMA staging LIMIT TO (stg_...) ...>)
     FROM SERVER fdw_intermediate_db_srv
     INTO fdw_intermediate_db;

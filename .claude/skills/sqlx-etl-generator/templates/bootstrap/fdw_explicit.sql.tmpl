@@ -36,6 +36,6 @@ CREATE SCHEMA IF NOT EXISTS {{ foreign_schema }};
 {% for t in tables %}
 CREATE FOREIGN TABLE {{ foreign_schema }}.{{ t.name }} (
 {{ t.ddl_body }}
-) SERVER {{ server_name }} OPTIONS (schema_name 'public', table_name '{{ t.name }}');
+) SERVER {{ server_name }} OPTIONS (schema_name '{{ remote_schema }}', table_name '{{ t.name }}');
 
 {% endfor %}

@@ -23,15 +23,15 @@ config {
 -- helper: the natural-key value process.sqlx needs to resolve the LOOKUP, never selected
 -- by write.sqlx.
 
-CREATE TABLE IF NOT EXISTS stg_dim_customer (
+CREATE TABLE IF NOT EXISTS staging.stg_dim_customer (
     customer_key integer,
     full_name varchar(200),
     status varchar(20)
 );
 
-TRUNCATE TABLE stg_dim_customer;
+TRUNCATE TABLE staging.stg_dim_customer;
 
-INSERT INTO stg_dim_customer (
+INSERT INTO staging.stg_dim_customer (
     customer_key,
     full_name,
     status

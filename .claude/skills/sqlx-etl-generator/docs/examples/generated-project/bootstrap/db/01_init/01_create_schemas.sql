@@ -2,10 +2,10 @@
 -- Ensures the default working schema exists in each database before DDL runs.
 
 -- source_db: run against that database
-CREATE SCHEMA IF NOT EXISTS public;
+CREATE SCHEMA IF NOT EXISTS source;
 
 -- intermediate_db: run against that database
-CREATE SCHEMA IF NOT EXISTS public;
+CREATE SCHEMA IF NOT EXISTS staging;
 
 -- target_db: run against that database
-CREATE SCHEMA IF NOT EXISTS public;
+CREATE SCHEMA IF NOT EXISTS warehouse;

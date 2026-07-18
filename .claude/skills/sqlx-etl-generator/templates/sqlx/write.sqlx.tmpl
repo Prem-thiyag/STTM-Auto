@@ -22,9 +22,9 @@ config {
 -- when its own write.sqlx runs (see metadata/dependency/dependency_graph.json's
 -- execution_order). Without CASCADE, PostgreSQL refuses to truncate any table an FK
 -- references, regardless of whether the referencing table currently has rows.
-TRUNCATE TABLE {{ target_table }} CASCADE;
+TRUNCATE TABLE {{ target_schema }}.{{ target_table }} CASCADE;
 
-INSERT INTO {{ target_table }} (
+INSERT INTO {{ target_schema }}.{{ target_table }} (
 {{ target_column_list }}
 )
 SELECT

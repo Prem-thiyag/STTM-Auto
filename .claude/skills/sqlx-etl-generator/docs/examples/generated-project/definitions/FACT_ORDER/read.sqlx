@@ -23,7 +23,7 @@ config {
 -- helper: the natural-key value process.sqlx needs to resolve the LOOKUP, never selected
 -- by write.sqlx.
 
-CREATE TABLE IF NOT EXISTS stg_fact_order (
+CREATE TABLE IF NOT EXISTS staging.stg_fact_order (
     order_key integer,
     customer_key integer,
     order_date date,
@@ -31,9 +31,9 @@ CREATE TABLE IF NOT EXISTS stg_fact_order (
     _lookup_customer_key integer
 );
 
-TRUNCATE TABLE stg_fact_order;
+TRUNCATE TABLE staging.stg_fact_order;
 
-INSERT INTO stg_fact_order (
+INSERT INTO staging.stg_fact_order (
     order_key,
     order_date,
     amount,

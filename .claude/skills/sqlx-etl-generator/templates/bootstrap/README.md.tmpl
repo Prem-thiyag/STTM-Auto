@@ -1,8 +1,8 @@
 # Bootstrap — {{ project_name }}
 
 Sets up the three PostgreSQL databases this project's generated pipeline expects:
-`{{ source_database }}` (source), `{{ intermediate_database }}` (staging), and
-`{{ target_database }}` (target). Every script here is plain SQL, run manually — no
+`{{ source_database }}.{{ source_schema }}` (source), `{{ intermediate_database }}.{{ intermediate_schema }}`
+(staging), and `{{ target_database }}.{{ target_schema }}` (target). Every script here is plain SQL, run manually — no
 script in this folder is ever executed automatically by any plan in this skill.
 That's deliberate: see the parent project's `metadata/` for the pipeline itself,
 which follows the same manual-execution rule.

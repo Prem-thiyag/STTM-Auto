@@ -24,13 +24,13 @@ config {
 -- helper: the natural-key value process.sqlx needs to resolve the LOOKUP, never selected
 -- by write.sqlx.
 
-CREATE TABLE IF NOT EXISTS {{ staging_table }} (
+CREATE TABLE IF NOT EXISTS {{ intermediate_schema }}.{{ staging_table }} (
 {{ staging_ddl }}
 );
 
-TRUNCATE TABLE {{ staging_table }};
+TRUNCATE TABLE {{ intermediate_schema }}.{{ staging_table }};
 
-INSERT INTO {{ staging_table }} (
+INSERT INTO {{ intermediate_schema }}.{{ staging_table }} (
 {{ insert_column_list }}
 )
 SELECT

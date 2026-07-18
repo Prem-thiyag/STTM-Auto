@@ -19,11 +19,11 @@ config {
 
 {% if lookup_columns %}
 {% for c in lookup_columns %}
-UPDATE {{ staging_table }}
+UPDATE {{ intermediate_schema }}.{{ staging_table }}
 SET {{ c.target_column }} = {{ c.expression }};
 {% endfor %}
 {% else %}
 -- No LOOKUP-typed columns in this table's build specification; no cross-table
 -- resolution is required at process time.
 {% endif %}
-SELECT count(*) AS row_count FROM {{ staging_table }};
+SELECT count(*) AS row_count FROM {{ intermediate_schema }}.{{ staging_table }};

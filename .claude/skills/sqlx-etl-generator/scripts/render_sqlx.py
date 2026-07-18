@@ -106,7 +106,7 @@ def render_generator_expression(generator: dict, qualify, base_table: str) -> st
     raise ValueError(f"unsupported generator.type '{kind}'")
 
 
-def build_render_context(spec: dict, intermediate_database: str) -> dict:
+def build_render_context(spec: dict, intermediate_database: str, intermediate_schema: str) -> dict:
     source_tables = spec["source_tables"]
     source_db_by_table = {st["table"]: st["database"] for st in source_tables}
 
@@ -235,6 +235,7 @@ def build_render_context(spec: dict, intermediate_database: str) -> dict:
     return {
         "target_table": spec["target_table"],
         "target_database": spec["target_database"],
+        "target_schema": spec["target_schema"],
         "load_strategy": spec["load_strategy"],
         "staging_table": spec["staging_table"],
         "grain": spec["grain"],
@@ -249,6 +250,7 @@ def build_render_context(spec: dict, intermediate_database: str) -> dict:
         "filters": spec["filters"],
         "source_tables": source_tables,
         "intermediate_database": intermediate_database,
+        "intermediate_schema": intermediate_schema,
         "staging_ddl": staging_ddl,
         "insert_column_list": insert_column_list,
         "select_expr_list": select_expr_list,
@@ -260,7 +262,9 @@ def build_render_context(spec: dict, intermediate_database: str) -> dict:
     }
 
 
-def render_table(spec: dict, env: Environment, output_dir: Path, intermediate_database: str) -> list[dict]:
+def render_table(
+    spec: dict, env: Environment, output_dir: Path, intermediate_database: str, intermediate_schema: str
+) -> list[dict]:
     if spec["load_strategy"] not in SUPPORTED_LOAD_STRATEGIES:
         raise ValueError(
             f"[{spec['target_table']}] load_strategy '{spec['load_strategy']}' has no SQLX "
@@ -269,7 +273,7 @@ def render_table(spec: dict, env: Environment, output_dir: Path, intermediate_da
             f"ADR-001 §11 -- add templates/sqlx/*.{spec['load_strategy']}.tmpl before using it."
         )
 
-    context = build_render_context(spec, intermediate_database)
+    context = build_render_context(spec, intermediate_database, intermediate_schema)
     table_dir = output_dir / spec["target_table"]
     table_dir.mkdir(parents=True, exist_ok=True)
 
@@ -292,6 +296,13 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True, help="definitions/ directory")
     parser.add_argument("--schema", type=Path, required=True, help="buildspec.schema.json path")
     parser.add_argument("--intermediate-database", default="intermediate_db")
+    parser.add_argument(
+        "--intermediate-schema", default="staging",
+        help="Namespace staging tables live under inside --intermediate-database. Always an "
+             "explicit renderer parameter, never derived from a buildspec -- the intermediate "
+             "database isn't described by target_schema.json (same reasoning as "
+             "--intermediate-database itself; see references/naming-conventions.md).",
+    )
     args = parser.parse_args()
 
     schema = json.loads(args.schema.read_text(encoding="utf-8"))
@@ -321,7 +332,9 @@ def main() -> int:
             print(f"ERROR: {spec_file} failed buildspec schema validation: {exc.message}", file=sys.stderr)
             return 2
         try:
-            all_written.extend(render_table(spec, env, args.output_dir, args.intermediate_database))
+            all_written.extend(
+                render_table(spec, env, args.output_dir, args.intermediate_database, args.intermediate_schema)
+            )
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 3 if "load_strategy" in str(exc) else 4

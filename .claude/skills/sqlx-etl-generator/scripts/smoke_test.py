@@ -172,6 +172,7 @@ def step3_render_is_reproducible() -> None:
             "--output-dir", str(out_dir),
             "--schema", "schemas/buildspec.schema.json",
             "--intermediate-database", "intermediate_db",
+            "--intermediate-schema", "staging",
         )
         check(result.returncode == 0, "render_sqlx.py exits 0", result.stderr)
         if result.returncode != 0:
@@ -201,6 +202,7 @@ def step4_bootstrap_is_reproducible() -> None:
             "--templates-dir", "templates/bootstrap",
             "--output-dir", str(out_dir),
             "--intermediate-database", "intermediate_db",
+            "--intermediate-schema", "staging",
             "--project-name", "retail-analytics-etl",
         )
         check(result.returncode == 0, "gen_bootstrap.py exits 0", result.stderr)
@@ -237,6 +239,7 @@ def step5_generated_column_renders() -> None:
         buildspec = {
             "target_table": "T",
             "target_database": "target_db",
+            "target_schema": "warehouse",
             "load_strategy": "full_load",
             "source_tables": [{"database": "source_db", "table": "S"}],
             "staging_table": "stg_t",
@@ -262,6 +265,7 @@ def step5_generated_column_renders() -> None:
             "--output-dir", str(out_dir),
             "--schema", "schemas/buildspec.schema.json",
             "--intermediate-database", "intermediate_db",
+            "--intermediate-schema", "staging",
         )
         check(result.returncode == 0, "render_sqlx.py exits 0 for a GENERATED column", result.stderr)
         if result.returncode != 0:

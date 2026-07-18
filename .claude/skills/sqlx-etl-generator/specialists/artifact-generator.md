@@ -76,9 +76,10 @@ sequentially (`C1`, `C2`, ... — not grouped by type).
 ### 3. `cleanup_manifest.json`
 
 One object entry per staging table (`database: intermediate_db`, `type: table`,
-`command: "DROP TABLE IF EXISTS <staging_table>;"`) and one per target table
-touched this run (`database: <target_database>`, `type: table`,
-`command: "TRUNCATE TABLE <target_table>;"`). This is the pipeline's own run
+`command: "DROP TABLE IF EXISTS <intermediate_schema>.<staging_table>;"`) and
+one per target table touched this run (`database: <target_database>`,
+`type: table`, `command: "TRUNCATE TABLE <target_schema>.<target_table>;"`).
+This is the pipeline's own run
 artifacts — not the bootstrap/demo environment, which gets its own separate
 manifest (see step 5).
 
@@ -107,8 +108,17 @@ python scripts/gen_bootstrap.py \
     --templates-dir templates/bootstrap \
     --output-dir bootstrap \
     --intermediate-database intermediate_db \
+    --intermediate-schema staging \
     --buildspecs-dir metadata/build
 ```
+
+`intermediate_db` / `staging` are this skill's defaults — pass whatever value
+Generate's confirmation checkpoint actually resolved for this run instead
+(same value passed to `render_sqlx.py`'s `--intermediate-database` /
+`--intermediate-schema` above). `source_schema.json` and `target_schema.json`
+must already carry a resolved (non-null) `schema` field by this point — this
+script fails loudly (exit 2) if either is still null, exactly like any other
+missing required field.
 
 `--buildspecs-dir` must always be passed on a real Generate run (the buildspecs this
 specialist itself depends on already exist by this point) — it's what lets

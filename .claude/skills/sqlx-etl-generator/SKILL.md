@@ -33,7 +33,9 @@ scope for this skill; do not invent a fifth plan (see `docs/ASSUMPTIONS.md`).
 and writes `definitions/` + `metadata/` + `bootstrap/` into `output/`, both
 relative to the repository root — see `plans/generate.md` Preconditions.
 These are defaults, not hardcoded paths; explicit paths from the user always
-win. A separate, independently runnable `engine/` at the repository root
+win. `input/` is local-only (gitignored except a `.gitkeep` placeholder) —
+`templates/sample-input/` at the repository root is a tracked, real worked
+sample if you want something to copy in and try immediately. A separate, independently runnable `engine/` at the repository root
 (outside this skill, not part of it — see `engine/README.md`) executes
 whatever `Generate` writes to `output/`; this skill never executes SQL itself.
 

@@ -157,6 +157,12 @@ def main() -> int:
     the sqlx-etl-generator skill's default Generate output location."""
     from engine.exceptions import EngineError
 
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()  # repo-root .env -> os.environ, if present; never overwrites already-set vars
+    except ImportError:  # pragma: no cover - exercised only when python-dotenv truly isn't installed
+        pass
+
     project_root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("output")
     if not project_root.exists():
         print(f"ERROR: project root not found: {project_root}", file=sys.stderr)

@@ -11,8 +11,8 @@
 -- if this input type is added (see docs/FUTURE_ENHANCEMENTS.md).
 
 {% for t in tables %}
--- TODO: populate sample rows for {{ t.name }} ({{ t.columns | map(attribute='name') | join(', ') }})
--- INSERT INTO {{ t.name }} ({{ t.columns | map(attribute='name') | join(', ') }}) VALUES
+-- TODO: populate sample rows for {{ schema }}.{{ t.name }} ({{ t.columns | map(attribute='name') | join(', ') }})
+-- INSERT INTO {{ schema }}.{{ t.name }} ({{ t.columns | map(attribute='name') | join(', ') }}) VALUES
 --     (/* {{ t.columns | length }} value(s) here */);
 
 {% endfor %}

@@ -28,8 +28,14 @@ python scripts/render_sqlx.py metadata/build \
     --templates-dir templates/sqlx \
     --output-dir definitions \
     --schema schemas/buildspec.schema.json \
-    --intermediate-database intermediate_db
+    --intermediate-database intermediate_db \
+    --intermediate-schema staging
 ```
+
+`intermediate_db` / `staging` are this skill's defaults — pass whatever value
+Generate's confirmation checkpoint actually resolved for this run instead
+(`references/naming-conventions.md`), the same way `--intermediate-database`
+already works.
 
 The script validates each buildspec against `schemas/buildspec.schema.json`,
 rejects any buildspec still carrying a `NEEDS_REVIEW` column (defense in depth —

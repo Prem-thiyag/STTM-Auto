@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Bash(cat .env*)",
+      "Bash(type .env*)",
+      "Read(.mcp.json)",
+      "Edit(.mcp.json)"
+    ]
+  }
+}

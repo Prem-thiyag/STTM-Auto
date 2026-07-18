@@ -7,5 +7,5 @@
 -- This script only ever runs when a human executes it manually — see bootstrap/README.md.
 
 {% for t in reset_order %}
-TRUNCATE TABLE {{ t }} CASCADE;
+TRUNCATE TABLE {{ schema }}.{{ t }} CASCADE;
 {% endfor %}

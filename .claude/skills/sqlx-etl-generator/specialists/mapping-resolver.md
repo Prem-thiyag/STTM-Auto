@@ -34,7 +34,10 @@ validating against `schemas/buildspec.schema.json`.
 
 ## Process, per target table
 
-1. **`target_table`, `target_database`, `grain`.** From `target_schema.json`.
+1. **`target_table`, `target_database`, `target_schema`, `grain`.** From
+   `target_schema.json` (`target_schema` is that file's top-level `schema`
+   field, already resolved to a non-null value by Generate's confirmation
+   checkpoint before this specialist ever runs — see `plans/generate.md`).
    `grain` is a one-sentence statement of the row grain — state it plainly (e.g.
    "one row per <the table's apparent primary-key entity>"); this is carried into
    generated SQLX as a header comment for humans, not used by any logic.

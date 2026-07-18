@@ -1,33 +1,33 @@
 {
-  "generated_at": "2026-07-17T14:52:00.664883Z",
+  "generated_at": "2026-07-18T04:29:43.586100Z",
   "objects": [
     {
       "database": "source_db",
-      "object": "CUSTOMER",
+      "object": "source.CUSTOMER",
       "type": "table",
       "script": "bootstrap/db/02_source/ddl_source_tables.sql",
-      "command": "TRUNCATE TABLE CUSTOMER CASCADE;"
+      "command": "TRUNCATE TABLE source.CUSTOMER CASCADE;"
     },
     {
       "database": "source_db",
-      "object": "CUSTOMER_ORDER",
+      "object": "source.CUSTOMER_ORDER",
       "type": "table",
       "script": "bootstrap/db/02_source/ddl_source_tables.sql",
-      "command": "TRUNCATE TABLE CUSTOMER_ORDER CASCADE;"
+      "command": "TRUNCATE TABLE source.CUSTOMER_ORDER CASCADE;"
     },
     {
       "database": "target_db",
-      "object": "DIM_CUSTOMER",
+      "object": "warehouse.DIM_CUSTOMER",
       "type": "table",
       "script": "bootstrap/db/04_target/ddl_target_tables.sql",
-      "command": "TRUNCATE TABLE DIM_CUSTOMER CASCADE;"
+      "command": "TRUNCATE TABLE warehouse.DIM_CUSTOMER CASCADE;"
     },
     {
       "database": "target_db",
-      "object": "FACT_ORDER",
+      "object": "warehouse.FACT_ORDER",
       "type": "table",
       "script": "bootstrap/db/04_target/ddl_target_tables.sql",
-      "command": "TRUNCATE TABLE FACT_ORDER CASCADE;"
+      "command": "TRUNCATE TABLE warehouse.FACT_ORDER CASCADE;"
     }
   ]
 }

@@ -20,12 +20,19 @@ Default locations, relative to the repository root (not the skill directory):
 - **Output**: `output/` — where `definitions/`, `metadata/`, and `bootstrap/` are
   written.
 
-Look in `input/` first. If it doesn't exist, or is missing one of the five
-documents, **ask the user** for the missing path(s) rather than guessing a
-substitute or silently falling back to some other location — do not search the
-rest of the repository for a plausibly-named file. If the user gives explicit
-paths (for either input or output), those override the defaults for that run;
-this is a default, not a hardcoded location.
+Unless the user already gave explicit paths for all five documents, run
+`python .claude/skills/sqlx-etl-generator/scripts/check_input.py [input_dir]`
+first — it is the single source of truth for which five filenames are
+required and whether each is present, non-empty, and (for the STTM workbook)
+structurally parseable; nothing in this plan re-lists or re-checks them
+independently. On a non-zero exit, relay its exact per-file messages (it
+already points at `templates/sample-input/` for anything missing) and
+**stop** — do not run any specialist, and do not guess a substitute or search
+the rest of the repository for a plausibly-named file. `input/` is local-only
+(gitignored except `.gitkeep`), so a fresh clone legitimately has nothing in
+it until the user populates it. If the user gives explicit paths (for either
+input or output) instead, those override the defaults for that run and skip
+this check against `input/` — this is a default, not a hardcoded location.
 
 ## Rule: total regeneration, never merge
 
@@ -57,6 +64,47 @@ specialist's input:
 Load each specialist's doc only when you're about to run that stage — this is
 what keeps Generate's context usage proportional to the stage actually running,
 not the whole pipeline's worth of instructions at once.
+
+## Checkpoint: confirm unresolved database/schema names (after specialist 1, before specialist 2)
+
+Schema Parser never guesses a database or schema name it can't trace to the
+input documents (`specialists/schema-parser.md`) — a database name it couldn't
+find falls back to the input filename stem (noted, not silent), and a schema/
+namespace it couldn't find is left `null`. Immediately after both Schema
+Parser runs (source and target) finish, and before STTM Parser runs, check
+`metadata/schema/source_schema.json` and `metadata/schema/target_schema.json`
+for anything left unresolved this way, and also decide the intermediate
+database/schema this run will use (they aren't described by either document at
+all — same reasoning as any other renderer parameter with a default, see
+`references/naming-conventions.md`).
+
+If every value is already explicit (both docs stated their schema, neither
+database name fell back to a filename stem, and the user already told you what
+intermediate database/schema to use for this run), skip this checkpoint
+entirely and continue straight to specialist 2 — do not ask about something
+already settled.
+
+Otherwise, batch every unresolved item into **one** `AskUserQuestion` call
+(one question per item, asked together, not one round-trip per item) before
+running any further specialist. For each item, offer its
+`references/naming-conventions.md` default as the option labeled
+"(Recommended)" and "Provide my own" as the other option — never pick
+silently, and never invent a default that isn't the documented one. Once
+answered:
+
+- Write the confirmed `schema` value back into `metadata/schema/source_schema.json`
+  and/or `target_schema.json` (replacing `null`) — every specialist after this
+  point must see only resolved, non-null values, per those files' own schema.
+- Carry the confirmed intermediate database/schema forward as the
+  `--intermediate-database` / `--intermediate-schema` arguments passed to
+  `scripts/render_sqlx.py` (specialist 5) and `scripts/gen_bootstrap.py`
+  (specialist 6) later in this same run.
+
+This mirrors how this same plan already handles a missing input document path
+(above, "Preconditions": ask, don't guess) and how the Mapping Resolver already
+handles an ambiguous mapping (`NEEDS_REVIEW`, see `docs/ASSUMPTIONS.md`) — a
+third, structurally identical instance of "stop and ask a human rather than
+silently pick," not a new mechanism.
 
 ## Hard stops
 

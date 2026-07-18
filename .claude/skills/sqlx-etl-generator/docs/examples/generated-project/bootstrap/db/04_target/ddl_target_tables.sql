@@ -5,19 +5,19 @@
 -- Deterministic projection of the schema IR — no fabricated structure, no business logic.
 -- Run once per environment. Safe to re-run: every statement is idempotent.
 
-CREATE TABLE IF NOT EXISTS DIM_CUSTOMER (
+CREATE TABLE IF NOT EXISTS warehouse.DIM_CUSTOMER (
     customer_key integer NOT NULL,
     full_name varchar(200) NOT NULL,
     status varchar(20) NOT NULL,
     CONSTRAINT DIM_CUSTOMER_pk PRIMARY KEY (customer_key)
 );
 
-CREATE TABLE IF NOT EXISTS FACT_ORDER (
+CREATE TABLE IF NOT EXISTS warehouse.FACT_ORDER (
     order_key integer NOT NULL,
     customer_key integer NOT NULL,
     order_date date NOT NULL,
     amount numeric(12,2) NOT NULL,
     CONSTRAINT FACT_ORDER_pk PRIMARY KEY (order_key),
-    CONSTRAINT FACT_ORDER_customer_key_fk FOREIGN KEY (customer_key) REFERENCES DIM_CUSTOMER (customer_key)
+    CONSTRAINT FACT_ORDER_customer_key_fk FOREIGN KEY (customer_key) REFERENCES warehouse.DIM_CUSTOMER (customer_key)
 );
 
