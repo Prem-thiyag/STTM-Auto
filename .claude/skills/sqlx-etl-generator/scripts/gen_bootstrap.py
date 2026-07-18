@@ -130,6 +130,43 @@ def enrich_tables(schema_ir: dict, schema: str) -> list[dict]:
     return enriched
 
 
+def topological_create_order(tables: list[dict]) -> list[dict]:
+    """Parent-first ordering of `tables` itself (not just names): a table is
+    placed only after every table it FK-references is already placed, so a
+    `CREATE TABLE ... FOREIGN KEY REFERENCES <other_table>` statement never
+    precedes the table it references. `enrich_tables()` preserves the schema
+    IR's document order, which has no reason to already respect FK dependency
+    order (a source/target doc is free to describe a referencing table before
+    the table it references) -- ddl.sql.tmpl needs this order, unlike every
+    other consumer of the enriched list (seed stub, manifest, FDW shapes),
+    which are order-independent. Same Kahn's-algorithm shape as
+    topological_reset_order() below but not shared with it: that function's
+    output is reversed-intent (children before parents) and only used by
+    reset.sql.tmpl's TRUNCATE ... CASCADE, which doesn't actually depend on
+    exact order once CASCADE is in play -- conflating the two would risk
+    changing reset's already-correct, already-tested output for no benefit."""
+    names = [t["name"] for t in tables]
+    name_set = set(names)
+    depends_on: dict[str, set] = {n: set() for n in names}
+    for t in tables:
+        for fk in t["foreign_keys"]:
+            if fk["references_table"] in name_set and fk["references_table"] != t["name"]:
+                depends_on[t["name"]].add(fk["references_table"])
+
+    ordered: list[str] = []
+    remaining = set(names)
+    while remaining:
+        ready = sorted(n for n in remaining if depends_on[n] <= set(ordered))
+        if not ready:
+            ready = sorted(remaining)
+        for n in ready:
+            ordered.append(n)
+            remaining.discard(n)
+
+    by_name = {t["name"]: t for t in tables}
+    return [by_name[n] for n in ordered]
+
+
 def topological_reset_order(tables: list[dict]) -> list[str]:
     """Children (tables with FKs) before parents, so a plain TRUNCATE (without needing
     CASCADE to do the ordering work) still reads top-to-bottom in dependency order.
@@ -282,7 +319,7 @@ def main() -> int:
     render_and_write(
         env, "ddl.sql.tmpl",
         {"database": source_ir["database"], "schema": source_schema_name,
-         "schema_source": args.source_schema.name, "tables": source_tables},
+         "schema_source": args.source_schema.name, "tables": topological_create_order(source_tables)},
         out / "db" / "02_source" / "ddl_source_tables.sql",
     )
     render_and_write(
@@ -302,7 +339,7 @@ def main() -> int:
     render_and_write(
         env, "ddl.sql.tmpl",
         {"database": target_ir["database"], "schema": target_schema_name,
-         "schema_source": args.target_schema.name, "tables": target_tables},
+         "schema_source": args.target_schema.name, "tables": topological_create_order(target_tables)},
         out / "db" / "04_target" / "ddl_target_tables.sql",
     )
     for t in target_tables:

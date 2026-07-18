@@ -238,10 +238,13 @@ def validate_schema(label: str, schema_json_path: Path, config: ConnectionConfig
 
 
 def validate_data(project_root: Path, source: ConnectionConfig, intermediate: ConnectionConfig,
-                   target: ConnectionConfig) -> list[Check]:
+                   target: ConnectionConfig, intermediate_schema: str = "staging") -> list[Check]:
     checks: list[Check] = []
+    source_schema_ir = json.loads((project_root / "metadata/schema/source_schema.json").read_text(encoding="utf-8"))
     target_schema = json.loads((project_root / "metadata/schema/target_schema.json").read_text(encoding="utf-8"))
     tables_by_name = {t["name"]: t for t in target_schema["tables"]}
+    source_schema_name = source_schema_ir["schema"]
+    target_schema_name = target_schema["schema"]
 
     build_dir = project_root / "metadata/build"
     buildspecs = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(build_dir.glob("*.buildspec.json"))]
@@ -256,14 +259,22 @@ def validate_data(project_root: Path, source: ConnectionConfig, intermediate: Co
         for bs in buildspecs:
             table = bs["target_table"]
             schema_table = tables_by_name.get(table, {})
+            # Bare names (used for Check ids and human-readable detail text) vs
+            # schema-qualified names (used in every live SQL statement below) --
+            # each database's table lives under its own declared/renderer schema,
+            # never PostgreSQL's default "public", so an unqualified name would
+            # resolve against the connecting role's search_path instead of the
+            # actual table.
+            q_table = f"{target_schema_name}.{table}"
+            q_staging = f"{intermediate_schema}.{bs['staging_table']}"
 
             # Row counts: staging (intermediate_db) vs target -- must match exactly under
             # full_load with no declared filters (every staged row is written, unfiltered).
             with iconn.cursor() as cur:
-                cur.execute(f'SELECT count(*) FROM {bs["staging_table"]}')
+                cur.execute(f'SELECT count(*) FROM {q_staging}')
                 staging_count = cur.fetchone()[0]
             with tconn.cursor() as cur:
-                cur.execute(f'SELECT count(*) FROM {table}')
+                cur.execute(f'SELECT count(*) FROM {q_table}')
                 target_count = cur.fetchone()[0]
             if bs["filters"]:
                 checks.append(Check(f"D-rowcount-{table}", "data", "WARN",
@@ -281,7 +292,7 @@ def validate_data(project_root: Path, source: ConnectionConfig, intermediate: Co
             if pk_cols and target_count > 0:
                 cols = ", ".join(pk_cols)
                 with tconn.cursor() as cur:
-                    cur.execute(f'SELECT {cols}, count(*) FROM {table} GROUP BY {cols} HAVING count(*) > 1')
+                    cur.execute(f'SELECT {cols}, count(*) FROM {q_table} GROUP BY {cols} HAVING count(*) > 1')
                     dups = cur.fetchall()
                 checks.append(Check(
                     f"D-duplicates-{table}", "data",
@@ -293,7 +304,7 @@ def validate_data(project_root: Path, source: ConnectionConfig, intermediate: Co
             not_null_cols = [c["name"] for c in schema_table.get("columns", []) if not c["nullable"]]
             for col in not_null_cols:
                 with tconn.cursor() as cur:
-                    cur.execute(f'SELECT count(*) FROM {table} WHERE {col} IS NULL')
+                    cur.execute(f'SELECT count(*) FROM {q_table} WHERE {col} IS NULL')
                     n = cur.fetchone()[0]
                 checks.append(Check(f"D-notnull-{table}.{col}", "data", "FAIL" if n else "PASS",
                                      f"{n} unexpected NULL(s) in NOT NULL column" if n else "no NULLs"))
@@ -306,8 +317,8 @@ def validate_data(project_root: Path, source: ConnectionConfig, intermediate: Co
                     continue
                 with tconn.cursor() as cur:
                     cur.execute(
-                        f'SELECT count(*) FROM {table} t WHERE t.{col["name"]} IS NOT NULL '
-                        f'AND NOT EXISTS (SELECT 1 FROM {fk["table"]} r WHERE r.{fk["column"]} = t.{col["name"]})'
+                        f'SELECT count(*) FROM {q_table} t WHERE t.{col["name"]} IS NOT NULL '
+                        f'AND NOT EXISTS (SELECT 1 FROM {target_schema_name}.{fk["table"]} r WHERE r.{fk["column"]} = t.{col["name"]})'
                     )
                     orphans = cur.fetchone()[0]
                 checks.append(Check(
@@ -317,27 +328,77 @@ def validate_data(project_root: Path, source: ConnectionConfig, intermediate: Co
                 ))
 
             # UDF transformation correctness: re-invoke the actual UDF (in intermediate_db)
-            # against the same source values, joined via each column's own DIRECT-mapped
-            # natural key -- never reimplement the UDF's logic here.
-            direct_join_col = next(
-                (c for c in bs["columns"]
-                 if c["transformation"] == "DIRECT" and c["source"] and not isinstance(c["source"]["column"], list)),
-                None,
-            )
+            # against the same source values, correlating each target row back to the
+            # exact source row it came from via the source table's declared PRIMARY KEY
+            # -- never a low-cardinality DIRECT column picked arbitrarily. An earlier
+            # version of this check joined on "the first DIRECT column found," which is
+            # only sound when that column happens to be unique; for a table like
+            # dim_patients (no DIRECT passthrough of any unique column -- patient_bk is
+            # itself UDF-derived), that picked something like `gender` and silently
+            # collapsed every patient sharing a gender into one dict entry, producing
+            # false-positive mismatches unrelated to any real UDF defect.
             udf_cols = [c for c in bs["columns"] if c["transformation"] == "UDF"]
-            if udf_cols and direct_join_col is not None:
-                base_table = bs["source_tables"][0]["table"]
-                src_join_col = direct_join_col["source"]["column"]
-                tgt_join_col = direct_join_col["target_column"]
+            base_table = bs["source_tables"][0]["table"]
+            source_table_ir = next(
+                (t for t in source_schema_ir["tables"] if t["name"] == base_table), None
+            )
+            source_pk_cols = [c["name"] for c in source_table_ir["columns"] if c["primary_key"]] \
+                if source_table_ir else []
+            source_pk_col = source_pk_cols[0] if len(source_pk_cols) == 1 else None
+
+            # Prefer a column that passes the source PK straight through unchanged --
+            # correlating on it needs no extra computation.
+            join_col = next(
+                (c for c in bs["columns"]
+                 if c["transformation"] == "DIRECT" and c["source"]
+                 and c["source"]["column"] == source_pk_col),
+                None,
+            ) if source_pk_col else None
+            join_via_udf = False
+            if join_col is None and source_pk_col:
+                # Fall back to a single-argument UDF column keyed on exactly the source
+                # PK (e.g. patient_bk = udf_calculate_patient_bk(patient_id)) -- still a
+                # sound, deterministic correlation key, computed via the same UDF call
+                # rather than assumed.
+                join_col = next(
+                    (c for c in bs["columns"]
+                     if c["transformation"] == "UDF" and c["source"]
+                     and not isinstance(c["source"]["column"], list)
+                     and c["source"]["column"] == source_pk_col),
+                    None,
+                )
+                join_via_udf = join_col is not None
+
+            if udf_cols and join_col is None:
+                checks.append(Check(
+                    f"D-udf-{table}", "data", "WARN",
+                    "no reliable source-PK-derived join key found in this buildspec's columns "
+                    "(no DIRECT passthrough and no single-argument UDF of the source primary "
+                    "key); skipping UDF re-invocation cross-check for this table",
+                ))
+            elif udf_cols and join_col is not None:
+                q_base_table = f"{source_schema_name}.{base_table}"
+                tgt_join_col = join_col["target_column"]
                 with sconn.cursor() as cur:
-                    cur.execute(f'SELECT * FROM {base_table}')
+                    cur.execute(f'SELECT * FROM {q_base_table}')
                     src_cols = [d[0] for d in cur.description]
-                    src_rows = {dict(zip(src_cols, row))[src_join_col]: dict(zip(src_cols, row))
-                                for row in cur.fetchall()}
+                    src_row_list = [dict(zip(src_cols, row)) for row in cur.fetchall()]
                 with tconn.cursor() as cur:
-                    cur.execute(f'SELECT * FROM {table}')
+                    cur.execute(f'SELECT * FROM {q_table}')
                     tgt_cols = [d[0] for d in cur.description]
                     tgt_rows = [dict(zip(tgt_cols, row)) for row in cur.fetchall()]
+
+                if join_via_udf:
+                    # Key src_rows by the join column's own UDF OUTPUT (not the raw PK
+                    # value), so it matches what actually landed in the target column.
+                    src_rows = {}
+                    for srow in src_row_list:
+                        with iconn.cursor() as cur:
+                            cur.execute(f'SELECT {join_col["udf"]}(%s)', [srow.get(source_pk_col)])
+                            src_rows[cur.fetchone()[0]] = srow
+                else:
+                    src_join_col = join_col["source"]["column"]
+                    src_rows = {srow.get(src_join_col): srow for srow in src_row_list}
 
                 for c in udf_cols:
                     mismatches = 0
@@ -368,7 +429,7 @@ def validate_data(project_root: Path, source: ConnectionConfig, intermediate: Co
     return checks
 
 
-def run(project_root: Path, skill_root: Path = DEFAULT_SKILL_ROOT) -> ValidationReport:
+def run(project_root: Path, skill_root: Path = DEFAULT_SKILL_ROOT, intermediate_schema: str = "staging") -> ValidationReport:
     if psycopg2 is None:
         raise EngineError("psycopg2 is not installed. Install with: pip install -r engine/requirements.txt")
 
@@ -380,7 +441,7 @@ def run(project_root: Path, skill_root: Path = DEFAULT_SKILL_ROOT) -> Validation
 
     checks += validate_schema("source", project_root / "metadata/schema/source_schema.json", source_cfg)
     checks += validate_schema("target", project_root / "metadata/schema/target_schema.json", target_cfg)
-    checks += validate_data(project_root, source_cfg, intermediate_cfg, target_cfg)
+    checks += validate_data(project_root, source_cfg, intermediate_cfg, target_cfg, intermediate_schema)
 
     if any(c.status == "FAIL" for c in checks):
         status = "FAIL"
@@ -406,10 +467,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project_root", nargs="?", default="output", type=Path)
     parser.add_argument("--skill-root", default=DEFAULT_SKILL_ROOT, type=Path)
+    parser.add_argument(
+        "--intermediate-schema", default="staging",
+        help="Namespace staging tables live under inside intermediate_db. Always an explicit "
+             "parameter, never derived from a schema IR -- same reasoning as render_sqlx.py's "
+             "and gen_bootstrap.py's --intermediate-schema (see references/naming-conventions.md "
+             "in the sqlx-etl-generator skill).",
+    )
     args = parser.parse_args()
 
     try:
-        report = run(args.project_root, args.skill_root)
+        report = run(args.project_root, args.skill_root, args.intermediate_schema)
     except EngineError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

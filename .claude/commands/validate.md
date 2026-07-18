@@ -5,8 +5,13 @@ description: Final quality gate -- validate STTM/metadata/SQL against live sourc
 Run the project's live validator:
 
 ```
-python -m engine.validate output
+python -m engine.validate output --intermediate-schema staging
 ```
+
+`staging` is the default — pass whatever schema this project's Generate run
+actually used for the intermediate database (same value given to
+`/generate`'s `--intermediate-schema`, per `references/naming-conventions.md`
+in the sqlx-etl-generator skill) if it differs.
 
 This checks, against the actual live databases and the actual generated artifacts
 (never assumed, never re-derived from the original input documents):
