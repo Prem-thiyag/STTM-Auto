@@ -1,0 +1,44 @@
+name: Collate feedback digest
+
+# Twice-weekly cadence: gathers every docs/session/**/*_feedback.md into one
+# dated digest in docs/collated/, then opens a PR with it. Deterministic
+# aggregation only (tool/collate_feedback.py) -- deciding what to actually
+# change based on the digest is a separate, human/Claude-session step.
+on:
+  schedule:
+    - cron: '0 9 * * 1,4' # Monday and Thursday, 09:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  collate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run collation script
+        run: python tool/collate_feedback.py
+
+      - name: Open PR with the digest
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "docs: collate feedback digest"
+          title: "Collated feedback digest"
+          body: |
+            Automated, scheduled run of `tool/collate_feedback.py`.
+
+            Deterministic aggregation only -- review this alongside the linked
+            session feedback docs and decide what, if anything, to act on
+            (e.g. by feeding this digest into a separate Claude Code session).
+          branch: automation/collate-feedback
+          delete-branch: true
+          add-paths: docs/collated/*.md

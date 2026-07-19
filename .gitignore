@@ -43,9 +43,8 @@ htmlcov/
 *.crt
 
 # ============================================================
-# Claude / MCP
+# Claude
 # ============================================================
-.mcp.json
 .claude/tmp/
 .claude/cache/
 .claude/settings.local.json

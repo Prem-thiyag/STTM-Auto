@@ -1,8 +1,10 @@
 {
-  "run_id": "2026-07-18-healthcare-etl",
+  "run_id": "ISSUE-2_2026-07-18_healthcare-etl",
+  "ticket": 2,
+  "branch": "execution/2-healthcare-etl",
   "date": "2026-07-18",
   "project": "healthcare-analytics-etl",
-  "narrative_doc": "docs/session/2026-07-18-healthcare-etl.md",
+  "narrative_doc": "docs/session/2026/Q3/ISSUE-2_2026-07-18_healthcare-etl_feedback.md",
   "note": "Minimal first-pass format -- one event per notable thing that happened, in order. Not a designed schema; the real event_log format is a separate future conversation, this just captures this run's content.",
   "events": [
     { "stage": "start-sttm", "status": "issue", "summary": "check_input.py failed: all 5 required input files missing from input/." },

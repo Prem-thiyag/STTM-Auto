@@ -1,6 +1,12 @@
+---
+ticket: 2
+branch: execution/2-healthcare-etl
+date: 2026-07-18
+event_log: docs/event_log/2026/Q3/ISSUE-2_2026-07-18_healthcare-etl_log.json
+---
+
 # Session feedback: healthcare STTM ETL — generate → review → seed → execute → validate
 
-**Date:** 2026-07-18
 **Scope:** First end-to-end run of the `sqlx-etl-generator` skill + `engine/` runtime against a real (synthetic) 6-table healthcare source → 5-table analytics target project. Full pipeline now runs clean (`/execute`: 15/15 steps; `/validate`: 222 PASS / 1 honest WARN / 0 FAIL).
 
 This got there via three code fixes to the skill/engine itself (not just this project's generated output), one design call flagged and resolved with the user, and a couple of smaller frictions worth the repo owner's attention. Details below, most consequential first.
@@ -74,6 +80,8 @@ Not a code bug — `validate.py` and the reference fixture in `docs/examples/gen
 ### 9. `check_input.py`'s required filenames are exact-match only
 
 The five required filenames (`source_schema.md`, `target_schema.md`, `sttm.xlsx`, `user_defined_functions.md`, `folder_hierarchy.md`) must match exactly. My actual files were named `healthcare_sttm.xlsx`, `hierarchy.md`, `udf_definitions.md` — reasonable, self-descriptive alternates that just needed a plain filesystem rename. Minor, but worth a louder callout in `ONBOARDING.md`/`check_input.py`'s error message that names must match *exactly*, not just be recognizable.
+
+> **Update (per `WORKFLOW.md` discussion):** going forward, ticket attachments are *not* renamed by the ticket author — `/start-ticket` classifies each attachment by content and writes canonical-named copies into `input/` itself. This friction point should not recur for tickets processed through that command.
 
 ### 10. STTM workbook header aliases didn't cover a natural real-world phrasing
 

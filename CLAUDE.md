@@ -33,6 +33,23 @@ workflow that performs some of these steps server-side. A workflow file you
 both read and merged once is a different trust boundary than Claude
 improvising a mutation mid-session.
 
+## Hard rule: code fixes found during a ticket execution need explicit approval
+
+If running a ticket's pipeline (`/generate` → `/review` → `/seed` → `/execute` →
+`/validate`) surfaces an actual bug in the tool itself — `.claude/skills/**` or
+`engine/**`, not the ticket's own input documents — Claude must stop and
+describe the bug and the proposed fix, then get the user's explicit approval
+**before** making the change. Never fix-then-report, even when the fix looks
+obviously correct and small.
+
+## Hard rule: ask before raising a PR — `gh` command or GitHub UI
+
+When a ticket's branch is ready to go up for review, always ask the user
+whether they want to raise the PR via `gh pr create` (Claude prints the exact
+command, per the rule above — never runs it) or via the GitHub web UI. If they
+choose the UI, give them the title and body text to paste in, not a command.
+Don't default to either option without asking.
+
 ## Repo orientation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the generator's design (ADR-001).
