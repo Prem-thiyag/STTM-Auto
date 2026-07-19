@@ -33,14 +33,19 @@ workflow that performs some of these steps server-side. A workflow file you
 both read and merged once is a different trust boundary than Claude
 improvising a mutation mid-session.
 
-## Hard rule: code fixes found during a ticket execution need explicit approval
+## Hard rule: code fixes found anywhere need explicit approval, presented as a choice
 
-If running a ticket's pipeline (`/generate` → `/review` → `/seed` → `/execute` →
-`/validate`) surfaces an actual bug in the tool itself — `.claude/skills/**` or
-`engine/**`, not the ticket's own input documents — Claude must stop and
-describe the bug and the proposed fix, then get the user's explicit approval
-**before** making the change. Never fix-then-report, even when the fix looks
+If *any* work — a ticket's pipeline run, building tooling, anything else —
+surfaces an actual bug in the tool itself (`.claude/skills/**` or
+`engine/**`, not a ticket's own input documents), Claude must stop and
+describe it before touching anything: what's broken, why, and what a fix
+would concretely involve. Never fix-then-report, even when the fix looks
 obviously correct and small.
+
+Don't just stop and leave it hanging, either. Always lay out the concrete
+options for how to proceed (fix it now, fix it later and work around it for
+now, skip it entirely, etc.) so there's something to actually choose
+between — not an open-ended "what do you want to do?"
 
 ## Hard rule: ask before raising a PR — `gh` command or GitHub UI
 

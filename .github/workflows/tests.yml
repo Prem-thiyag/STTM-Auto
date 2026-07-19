@@ -1,0 +1,46 @@
+name: Tests
+
+# Runs on every PR into main -- covers both execution/* ticket branches and
+# develop/* free-push branches alike, since both eventually PR into main and
+# neither has any other CI gate today.
+#
+# Runs two things, both deliberately scoped to what's actually hermetic:
+#
+# 1. The skill's smoke_test.py -- deterministic, no live Postgres, no LLM,
+#    checked against the reference fixture in docs/examples/generated-project/.
+#
+# 2. Only 3 of engine/tests/**'s 6 files (test_logger.py, test_postgres.py,
+#    test_utils.py) -- the ones that don't depend on the real_output_project
+#    fixture (engine/tests/conftest.py). The other 3 (test_executor.py,
+#    test_parser.py, test_planner.py) assert a real output/ already exists,
+#    which a clean checkout never has -- producing one requires /generate's
+#    LLM-reasoning specialists, which can't run headlessly in CI. Known
+#    limitation, not silently worked around; those 3 stay a locally-run
+#    suite until that fixture is redesigned.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install skill script dependencies
+        run: pip install -r .claude/skills/sqlx-etl-generator/scripts/requirements.txt
+
+      - name: Run sqlx-etl-generator smoke test
+        run: python .claude/skills/sqlx-etl-generator/scripts/smoke_test.py
+
+      - name: Install engine dependencies
+        run: pip install -r engine/requirements.txt pytest
+
+      - name: Run engine's fixture-free unit tests
+        run: python -m pytest engine/tests/test_logger.py engine/tests/test_postgres.py engine/tests/test_utils.py -v

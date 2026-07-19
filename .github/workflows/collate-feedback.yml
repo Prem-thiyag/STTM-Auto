@@ -6,12 +6,13 @@ name: Collate feedback digest
 # change based on the digest is a separate, human/Claude-session step.
 on:
   schedule:
-    - cron: '0 9 * * 1,4' # Monday and Thursday, 09:00 UTC
+    - cron: '0 20 * * 3,5' # Wednesday and Friday, 20:00 UTC (nightly)
   workflow_dispatch: {}
 
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   collate:
@@ -29,6 +30,7 @@ jobs:
         run: python tool/collate_feedback.py
 
       - name: Open PR with the digest
+        id: pr
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "docs: collate feedback digest"
@@ -42,3 +44,20 @@ jobs:
           branch: automation/collate-feedback
           delete-branch: true
           add-paths: docs/collated/*.md
+
+      - name: Open review reminder, alternating assignee by day
+        if: steps.pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%u)" = "3" ]; then
+            ASSIGNEE="kapil13007"
+          else
+            ASSIGNEE="Prem-thiyag"
+          fi
+          gh issue create \
+            --title "Review feedback digest — $(date -u +%F)" \
+            --assignee "$ASSIGNEE" \
+            --body "New digest: #${{ steps.pr.outputs.pull-request-number }}
+
+Once that PR is merged, run \`/review-digest\` against it and decide what's actually worth acting on."
