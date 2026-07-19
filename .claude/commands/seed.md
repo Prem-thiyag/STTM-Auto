@@ -9,7 +9,11 @@ any row-level data**, seed or otherwise: this project's generator never fabricat
 business data (see `ARCHITECTURE.md` §5/§9), and any reference dataset is loaded
 manually, outside this command.
 
-Run:
+First, run `python tool/check_setup.py`. If it reports `[SETUP INCOMPLETE]`,
+relay what it printed, tell the user to run `/setup` (and configure `.env`
+from `.env.example` if that's what's flagged), and stop.
+
+Otherwise, run:
 
 ```
 python -m engine.dbadmin seed

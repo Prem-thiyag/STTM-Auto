@@ -511,3 +511,33 @@ Everything else in your original proposal — the four user-facing plans, the si
 **Consequences:** Rendering cost stays flat as table count grows; a hand-edit to generated SQL is detectable, not silently trusted; automation of `Execute` later requires no change to any reasoning specialist; sample-data loading remains a known, explicitly-deferred gap rather than a source of fabricated content.
 
 **This ADR is the implementation specification for `/run-skill-generator`.**
+
+---
+
+## 13. Addendum: The Ticket-Automation Layer (added later)
+
+Everything above is this ADR's original scope: the generator itself and its
+four user-facing plans. A second layer was later built *around* that —
+turning a GitHub execution ticket into a branch, running the cycle above,
+and raising a PR back with a durable record of what happened. That layer
+isn't part of ADR-001's design and isn't documented here in detail; see
+[`WORKFLOW.md`](WORKFLOW.md) for the day-to-day practice and
+[`CLAUDE.md`](CLAUDE.md) for the hard rules it operates under (most load-bearing:
+Claude never runs a git/`gh` mutation itself — every such command is printed
+for a human to run). In brief, it added:
+
+- Five more commands (`/setup`, `/start-ticket`, `/finish-ticket`,
+  `/raise-pr`, `/review-digest`) alongside the original seven.
+- `docs/session/**` and `docs/event_log/**` — a narrative and a mechanical
+  record per ticket, respectively (see `docs/README.md` for the naming
+  convention and how the two pair up).
+- `tool/` — the deterministic scripts behind those commands, plus local dev
+  setup (`setup_env.py`, `check_setup.py`).
+- Three CI workflows (`.github/workflows/`): a twice-weekly feedback digest,
+  a heuristic ticket-attachment check, and a PR test gate (the skill's own
+  `smoke_test.py` plus the subset of `engine/tests/` that doesn't need a
+  live-generated `output/`).
+
+This addendum exists so a reader of ADR-001 knows this layer is there and
+where to find it — not to re-litigate or extend the six-specialist design
+above, which this addition doesn't touch.

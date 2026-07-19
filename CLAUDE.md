@@ -33,9 +33,31 @@ workflow that performs some of these steps server-side. A workflow file you
 both read and merged once is a different trust boundary than Claude
 improvising a mutation mid-session.
 
+## Hard rule: code fixes found anywhere need explicit approval, presented as a choice
+
+If *any* work — a ticket's pipeline run, building tooling, anything else —
+surfaces an actual bug in the tool itself (`.claude/skills/**` or
+`engine/**`, not a ticket's own input documents), Claude must stop and
+describe it before touching anything: what's broken, why, and what a fix
+would concretely involve. Never fix-then-report, even when the fix looks
+obviously correct and small.
+
+Don't just stop and leave it hanging, either. Always lay out the concrete
+options for how to proceed (fix it now, fix it later and work around it for
+now, skip it entirely, etc.) so there's something to actually choose
+between — not an open-ended "what do you want to do?"
+
+## Hard rule: ask before raising a PR — `gh` command or GitHub UI
+
+When a ticket's branch is ready to go up for review, always ask the user
+whether they want to raise the PR via `gh pr create` (Claude prints the exact
+command, per the rule above — never runs it) or via the GitHub web UI. If they
+choose the UI, give them the title and body text to paste in, not a command.
+Don't default to either option without asking.
+
 ## Repo orientation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the generator's design (ADR-001).
 - [ONBOARDING.md](ONBOARDING.md) — first-time setup.
 - [WORKFLOW.md](WORKFLOW.md) — day-to-day git/branching practice for the two
-  of you (once written).
+  of you.

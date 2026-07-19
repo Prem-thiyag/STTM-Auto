@@ -2,7 +2,11 @@
 description: Validate the generated project against the rules Generate wrote for it (metadata/review/review_spec.json). Never modifies anything.
 ---
 
-Use the existing `sqlx-etl-generator` skill's Review capability
+First, run `python tool/check_setup.py`. If it reports `[SETUP INCOMPLETE]`,
+relay what it printed, tell the user to run `/setup` (and configure `.env`
+from `.env.example` if that's what's flagged), and stop.
+
+Otherwise, use the existing `sqlx-etl-generator` skill's Review capability
 (`.claude/skills/sqlx-etl-generator/plans/review.md`) to validate what `/generate`
 produced. `metadata/review/review_spec.json` must exist (i.e. `/generate` has run at
 least once) — if it doesn't, say so and stop.

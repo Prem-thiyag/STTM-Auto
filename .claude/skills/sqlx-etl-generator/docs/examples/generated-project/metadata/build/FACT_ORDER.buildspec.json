@@ -1,0 +1,52 @@
+{
+  "target_table": "FACT_ORDER",
+  "target_database": "target_db",
+  "target_schema": "warehouse",
+  "load_strategy": "full_load",
+  "source_tables": [
+    { "database": "source_db", "table": "CUSTOMER_ORDER" }
+  ],
+  "staging_table": "stg_fact_order",
+  "columns": [
+    {
+      "target_column": "order_key",
+      "type": "integer",
+      "source": { "table": "CUSTOMER_ORDER", "column": "order_id" },
+      "transformation": "DIRECT",
+      "expression": null,
+      "udf": null,
+      "generator": null
+    },
+    {
+      "target_column": "customer_key",
+      "type": "integer",
+      "source": { "table": "CUSTOMER_ORDER", "column": "customer_id" },
+      "transformation": "LOOKUP",
+      "expression": "(SELECT dc.customer_key FROM fdw_target_db.dim_customer dc WHERE dc.customer_key = stg_fact_order._lookup_customer_key)",
+      "udf": null,
+      "generator": null
+    },
+    {
+      "target_column": "order_date",
+      "type": "date",
+      "source": { "table": "CUSTOMER_ORDER", "column": "order_date" },
+      "transformation": "DIRECT",
+      "expression": null,
+      "udf": null,
+      "generator": null
+    },
+    {
+      "target_column": "amount",
+      "type": "numeric(12,2)",
+      "source": { "table": "CUSTOMER_ORDER", "column": "amount" },
+      "transformation": "DIRECT",
+      "expression": null,
+      "udf": null,
+      "generator": null
+    }
+  ],
+  "joins": [],
+  "filters": [],
+  "grain": "one row per order",
+  "mapping_refs": ["M004", "M005", "M006", "M007"]
+}

@@ -1,0 +1,41 @@
+name: Ticket attachment check
+
+# Comment-only, read-only heads-up on a new execution ticket -- runs before
+# anyone opens Claude Code. A static, reviewed CI job (not Claude improvising
+# a mutation mid-session), so it's a different trust boundary than the
+# git/gh hard rule in CLAUDE.md and doesn't conflict with it.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    if: contains(github.event.issue.labels.*.name, 'execution')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check attachments
+        id: check
+        run: |
+          gh issue view ${{ github.event.issue.number }} --json body -q .body > issue_body.md
+          if python tool/check_ticket_attachments.py issue_body.md > comment.md; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment if something looks off
+        if: steps.check.outputs.ok == 'false'
+        run: gh issue comment ${{ github.event.issue.number }} --body-file comment.md
