@@ -9,9 +9,12 @@ file before touching git or GitHub.
 Claude must never execute a command that changes git history or remote
 GitHub state. This includes, but isn't limited to:
 
-- `git add`, `git commit`, `git push`, `git pull`, `git fetch` combined with
-  branch deletion, `git rebase`, `git merge`, `git checkout -b` / any branch
-  creation, `git reset`, `git stash`
+- `git add`, `git commit`, `git push`, `git pull`, `git fetch` (bare or with
+  any flag, including `--prune` — even though a plain fetch only updates
+  remote-tracking refs and touches no branch or history, it's still print-only,
+  no exceptions), `git checkout` (switching branches, not just `-b` creating
+  one), `git rebase`, `git merge`, `git reset`, `git stash`, `git branch -m`
+  (rename) / `-d`/`-D` (delete)
 - `gh pr create`, `gh pr merge`, `gh issue close`, `gh issue comment`, or any
   other `gh` call that mutates GitHub state (opens/closes/comments/merges)
 
@@ -23,9 +26,12 @@ ambiguous who owns that step.
 
 **Read-only inspection is fine to run directly** — it doesn't change any
 state: `git status`, `git log`, `git diff`, `git branch --show-current`,
+`git branch -vv`, `git ls-remote`, `git branch --list`, `git ls-files`,
+`git check-ignore`, `git show <ref>:<path>`, `git merge-base`,
 `gh issue view`, `gh pr view`, and `gh api` GET calls (e.g. reading issue
 metadata or downloading an issue's attachment files into `input/` — that's
-a plain filesystem write, not a git action).
+a plain filesystem write, not a git action). None of these touch `HEAD`,
+the working tree, refs, or remote-tracking branches.
 
 This rule is about Claude's own live, ad hoc actions in a session — it does
 not forbid the two of you from authoring a reviewed, static GitHub Actions
