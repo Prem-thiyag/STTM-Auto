@@ -34,8 +34,7 @@ htmlcov/
 # Environment & Secrets
 # ============================================================
 .env
-.env.*
-!.env.example
+.env.mcp
 
 # Secrets / Certificates
 *.pem
