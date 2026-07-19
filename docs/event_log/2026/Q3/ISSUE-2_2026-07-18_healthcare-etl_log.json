@@ -1,45 +1,1623 @@
 {
-  "run_id": "ISSUE-2_2026-07-18_healthcare-etl",
   "ticket": 2,
-  "branch": "execution/2-healthcare-etl",
+  "branch": "develop/2-healthcare-etl",
   "date": "2026-07-18",
-  "project": "healthcare-analytics-etl",
   "narrative_doc": "docs/session/2026/Q3/ISSUE-2_2026-07-18_healthcare-etl_feedback.md",
-  "note": "Minimal first-pass format -- one event per notable thing that happened, in order. Not a designed schema; the real event_log format is a separate future conversation, this just captures this run's content.",
-  "events": [
-    { "stage": "start-sttm", "status": "issue", "summary": "check_input.py failed: all 5 required input files missing from input/." },
-    { "stage": "start-sttm", "status": "fixed", "summary": "User's existing input files had non-standard names (healthcare_sttm.xlsx, hierarchy.md, udf_definitions.md); renamed to required filenames." },
-    { "stage": "start-sttm", "status": "issue", "summary": "sttm.xlsx header 'Transformation Logic / UDF Call' didn't match any recognized transformation_note alias." },
-    { "stage": "start-sttm", "status": "fixed", "summary": "Added 'transformation logic / udf call' as a recognized alias in parse_sttm.py rather than asking user to rename their spreadsheet column." },
-    { "stage": "start-sttm", "status": "ok", "summary": "All input checks pass; connectivity to Postgres confirmed; generation/review/execution/validation all WARN (not yet run)." },
-    { "stage": "generate", "status": "ok", "summary": "Schema Parser: source_db (schema raw) and target_db (schema analytics) both explicit in input docs, no fallback needed." },
-    { "stage": "generate", "status": "ok", "summary": "STTM Parser: 70 mapping rows classified (DIRECT/UDF/EXPRESSION), zero duplicate_mapping or NEEDS_REVIEW." },
-    { "stage": "generate", "status": "ok", "summary": "Dependency Builder: 5 tables, no cross-table LOOKUP edges (all FK columns pass through raw business keys), no cycles." },
-    { "stage": "generate", "status": "issue", "summary": "target_schema.md declares dim_patients/dim_doctors as SCD2 and fct_appointments as incremental, but render_sqlx.py only supports load_strategy=full_load." },
-    { "stage": "generate", "status": "fixed", "summary": "User chose full_load-for-now with loud flagging in buildspec.grain and generated SQLX headers; real SCD2/incremental support deferred." },
-    { "stage": "generate", "status": "issue", "summary": "4 columns (patient_dk/hashdiff, doctor_dk/hashdiff) use nested UDF calls the buildspec's flat UDF transformation type can't express." },
-    { "stage": "generate", "status": "fixed", "summary": "Reclassified as EXPRESSION with fully-qualified raw SQL instead of forcing NEEDS_REVIEW." },
-    { "stage": "generate", "status": "ok", "summary": "SQLX Generator and Artifact Generator completed; 15 .sqlx files, bootstrap/, all metadata written; 5 target tables." },
-    { "stage": "review", "status": "ok", "summary": "30/32 checks PASS; 2 WARN (schema_cross_check, no Postgres MCP tool available in session)." },
-    { "stage": "mcp", "status": "issue", "summary": "User expected a Postgres MCP tool; none was loaded (checked ToolSearch repeatedly, .mcp.json unreadable)." },
-    { "stage": "mcp", "status": "fixed", "summary": "User restarted the MCP connection; mcp__postgres__query became available, confirmed connected to 'postgres' db not the project's 3 databases." },
-    { "stage": "seed", "status": "ok", "summary": "python -m engine.dbadmin seed reset source_db/intermediate_db/target_db (confirmed empty beforehand via MCP query, safe to proceed)." },
-    { "stage": "execute", "status": "issue", "summary": "Attempt 1: bootstrap failed -- gen_bootstrap.py emitted CREATE TABLE raw.doctors (FK to facilities) before raw.facilities existed; DDL order wasn't FK-topologically sorted." },
-    { "stage": "execute", "status": "fixed", "summary": "Added topological_create_order() to gen_bootstrap.py, used only for the two ddl.sql.tmpl renders; regenerated bootstrap." },
-    { "stage": "execute", "status": "issue", "summary": "Attempt 2: bootstrap failed on target DDL -- fct_appointments/dim_insurance FK'd to dim_patients.patient_bk / dim_doctors.doctor_bk, neither of which is unique (SCD2 business keys)." },
-    { "stage": "execute", "status": "fixed", "summary": "Dropped the DB-level FK constraint for those 2 business-key references in target_schema.json (kept as documented lineage only); facility_id FK (genuinely unique) left intact." },
-    { "stage": "execute", "status": "issue", "summary": "Attempt 3: pipeline failed at dim_doctors.read -- udf_generate_dk(varchar, timestamptz) does not exist; CURRENT_TIMESTAMP is timestamptz but UDF param is plain TIMESTAMP." },
-    { "stage": "execute", "status": "fixed", "summary": "Added explicit CURRENT_TIMESTAMP::TIMESTAMP cast in the 2 affected buildspec EXPRESSION strings; re-rendered SQLX." },
-    { "stage": "execute", "status": "issue", "summary": "Attempt 4: pipeline failed at dim_doctors.read -- value too long for doctor_bk VARCHAR(20); udf.md's doctor_bk formula (doctor_id + '|' + license_number) needs ~50 chars." },
-    { "stage": "execute", "status": "fixed", "summary": "User chose to widen doctor_bk to VARCHAR(50) in target_schema.md and live DB (ALTER COLUMN, since CREATE TABLE IF NOT EXISTS wouldn't retroactively widen it)." },
-    { "stage": "execute", "status": "ok", "summary": "Full pipeline succeeded: 15/15 steps, 46 rows total across 5 tables, 1.3s total runtime." },
-    { "stage": "validate", "status": "issue", "summary": "Attempt 1: crashed immediately -- validate_data() used bare unqualified table names, only works for public-schema projects (this one uses raw/staging/analytics)." },
-    { "stage": "validate", "status": "fixed", "summary": "Added --intermediate-schema CLI param to engine/validate.py, schema-qualified every live query (staging, target, source, FK-referenced tables)." },
-    { "stage": "validate", "status": "issue", "summary": "Attempt 2: G-manifest-drift WARN listed 35 files as 'missing' despite existing -- manifest.json used output/-prefixed paths, doubled against project_root." },
-    { "stage": "validate", "status": "fixed", "summary": "Stripped redundant output/ prefix from manifest.json's generated_files paths, matching the skill's reference-fixture convention." },
-    { "stage": "validate", "status": "issue", "summary": "Attempt 2 (same run): D-udf-dim_patients.* FAIL (10/12 or 4/12 mismatches per column) -- join-key heuristic picked 'gender' (low-cardinality DIRECT column), silently colliding rows." },
-    { "stage": "validate", "status": "fixed", "summary": "Rewrote join-key selection to use the source table's declared PRIMARY KEY (direct passthrough preferred, single-arg UDF-of-PK fallback); WARN honestly when no safe key exists instead of guessing." },
-    { "stage": "validate", "status": "ok", "summary": "Final run: 222 PASS, 1 honest WARN (D-udf-dim_doctors -- doctor_bk needs 2 source columns, no safe single-key correlation), 0 FAIL." },
-    { "stage": "wrap-up", "status": "ok", "summary": "Wrote docs/session/2026-07-18-healthcare-etl.md summarizing all fixes and gaps for the repo owner; restructured docs/ into session/ (narrative) and event_log/ (this file)." }
-  ]
+  "execution": {
+    "source": "output/metadata/execution/engine_execution_log.json",
+    "summary": {
+      "step_count": 23,
+      "status_counts": {
+        "success": 21,
+        "failure": 2
+      }
+    },
+    "entries": [
+      {
+        "table": "dim_facilities",
+        "stage": "read",
+        "start_time": "2026-07-18T10:21:50.275793Z",
+        "end_time": "2026-07-18T10:21:50.357277Z",
+        "duration_seconds": 0.08148619999701623,
+        "status": "success",
+        "rows_affected": 5,
+        "sql_hash": "sha256:abb8acafe789ec5f4493cbfc566bfb4fffdbc0338d05944ff2751dd02924318d",
+        "error_message": null
+      },
+      {
+        "table": "dim_facilities",
+        "stage": "process",
+        "start_time": "2026-07-18T10:21:50.358147Z",
+        "end_time": "2026-07-18T10:21:50.386547Z",
+        "duration_seconds": 0.028405000004568137,
+        "status": "success",
+        "rows_affected": 1,
+        "sql_hash": "sha256:380a84f435371c49336c78a7f4877bccf78a149e9b403a0e1298daa292634bc1",
+        "error_message": null
+      },
+      {
+        "table": "dim_facilities",
+        "stage": "write",
+        "start_time": "2026-07-18T10:21:50.387394Z",
+        "end_time": "2026-07-18T10:21:50.456497Z",
+        "duration_seconds": 0.06911110000510234,
+        "status": "success",
+        "rows_affected": 5,
+        "sql_hash": "sha256:fc05a89a0cd25696f91399144f1bc5311747797166ccc510e8ff9d80722b7bc7",
+        "error_message": null
+      },
+      {
+        "table": "dim_doctors",
+        "stage": "read",
+        "start_time": "2026-07-18T10:21:50.457908Z",
+        "end_time": "2026-07-18T10:21:50.595641Z",
+        "duration_seconds": 0.13774049999483395,
+        "status": "failure",
+        "rows_affected": null,
+        "sql_hash": "sha256:0fa30d4812ee4a5fca5f7dfac022f50f36b1bed6bffe88ea48237e6fa748c461",
+        "error_message": "function udf_generate_dk(character varying, timestamp with time zone) does not exist\nLINE 61:     udf_generate_dk(udf_calculate_doctor_bk(fdw_source_db.do...\n             ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\n"
+      },
+      {
+        "table": "dim_facilities",
+        "stage": "read",
+        "start_time": "2026-07-18T10:23:05.958836Z",
+        "end_time": "2026-07-18T10:23:06.033176Z",
+        "duration_seconds": 0.07434239999565762,
+        "status": "success",
+        "rows_affected": 5,
+        "sql_hash": "sha256:abb8acafe789ec5f4493cbfc566bfb4fffdbc0338d05944ff2751dd02924318d",
+        "error_message": null
+      },
+      {
+        "table": "dim_facilities",
+        "stage": "process",
+        "start_time": "2026-07-18T10:23:06.034100Z",
+        "end_time": "2026-07-18T10:23:06.067442Z",
+        "duration_seconds": 0.03334510000422597,
+        "status": "success",
+        "rows_affected": 1,
+        "sql_hash": "sha256:380a84f435371c49336c78a7f4877bccf78a149e9b403a0e1298daa292634bc1",
+        "error_message": null
+      },
+      {
+        "table": "dim_facilities",
+        "stage": "write",
+        "start_time": "2026-07-18T10:23:06.068255Z",
+        "end_time": "2026-07-18T10:23:06.143266Z",
+        "duration_seconds": 0.07501929999853019,
+        "status": "success",
+        "rows_affected": 5,
+        "sql_hash": "sha256:fc05a89a0cd25696f91399144f1bc5311747797166ccc510e8ff9d80722b7bc7",
+        "error_message": null
+      },
+      {
+        "table": "dim_doctors",
+        "stage": "read",
+        "start_time": "2026-07-18T10:23:06.144049Z",
+        "end_time": "2026-07-18T10:23:06.217581Z",
+        "duration_seconds": 0.0735385000007227,
+        "status": "failure",
+        "rows_affected": null,
+        "sql_hash": "sha256:092f8ea7725b89b0bb3a0d3f1150a22f7fd0adcdac8d797d8bbf47c1755b1d25",
+        "error_message": "value too long for type character varying(20)\n"
+      },
+      {
+        "table": "dim_facilities",
+        "stage": "read",
+        "start_time": "2026-07-18T10:26:50.060652Z",
+        "end_time": "2026-07-18T10:26:50.237180Z",
+        "duration_seconds": 0.17653250000148546,
+        "status": "success",
+        "rows_affected": 5,
+        "sql_hash": "sha256:abb8acafe789ec5f4493cbfc566bfb4fffdbc0338d05944ff2751dd02924318d",
+        "error_message": null
+      },
+      {
+        "table": "dim_facilities",
+        "stage": "process",
+        "start_time": "2026-07-18T10:26:50.238170Z",
+        "end_time": "2026-07-18T10:26:50.268051Z",
+        "duration_seconds": 0.029885099997045472,
+        "status": "success",
+        "rows_affected": 1,
+        "sql_hash": "sha256:380a84f435371c49336c78a7f4877bccf78a149e9b403a0e1298daa292634bc1",
+        "error_message": null
+      },
+      {
+        "table": "dim_facilities",
+        "stage": "write",
+        "start_time": "2026-07-18T10:26:50.268883Z",
+        "end_time": "2026-07-18T10:26:50.338236Z",
+        "duration_seconds": 0.06935900000098627,
+        "status": "success",
+        "rows_affected": 5,
+        "sql_hash": "sha256:fc05a89a0cd25696f91399144f1bc5311747797166ccc510e8ff9d80722b7bc7",
+        "error_message": null
+      },
+      {
+        "table": "dim_doctors",
+        "stage": "read",
+        "start_time": "2026-07-18T10:26:50.339014Z",
+        "end_time": "2026-07-18T10:26:50.413208Z",
+        "duration_seconds": 0.07420510001247749,
+        "status": "success",
+        "rows_affected": 8,
+        "sql_hash": "sha256:ab4131956d5d6c194a269a1c349467cbaa210f7df3967004a342c9b23c32cd23",
+        "error_message": null
+      },
+      {
+        "table": "dim_doctors",
+        "stage": "process",
+        "start_time": "2026-07-18T10:26:50.414051Z",
+        "end_time": "2026-07-18T10:26:50.556659Z",
+        "duration_seconds": 0.1426147000020137,
+        "status": "success",
+        "rows_affected": 1,
+        "sql_hash": "sha256:70ad9aaeba8da7f82ec7d904ea8dcf50844065455169deb31ab1c9a450b499bc",
+        "error_message": null
+      },
+      {
+        "table": "dim_doctors",
+        "stage": "write",
+        "start_time": "2026-07-18T10:26:50.557498Z",
+        "end_time": "2026-07-18T10:26:50.628789Z",
+        "duration_seconds": 0.07129839999834076,
+        "status": "success",
+        "rows_affected": 8,
+        "sql_hash": "sha256:9b5f1354c2f41f1f8251d3d44ab016af0bbe5efd6f2a2ab22ee75e54bde6e0ae",
+        "error_message": null
+      },
+      {
+        "table": "dim_patients",
+        "stage": "read",
+        "start_time": "2026-07-18T10:26:50.629618Z",
+        "end_time": "2026-07-18T10:26:50.817930Z",
+        "duration_seconds": 0.1883261000039056,
+        "status": "success",
+        "rows_affected": 12,
+        "sql_hash": "sha256:c8f08d62ca42ddb302c282724be04db545babb97aff1acffe26d7a2c00ec330f",
+        "error_message": null
+      },
+      {
+        "table": "dim_patients",
+        "stage": "process",
+        "start_time": "2026-07-18T10:26:50.818861Z",
+        "end_time": "2026-07-18T10:26:50.853400Z",
+        "duration_seconds": 0.03455670000403188,
+        "status": "success",
+        "rows_affected": 1,
+        "sql_hash": "sha256:453f638b9bb523dc13dd029cd3d268e654722ca3d617921f0aed9b06d2db5e5a",
+        "error_message": null
+      },
+      {
+        "table": "dim_patients",
+        "stage": "write",
+        "start_time": "2026-07-18T10:26:50.854354Z",
+        "end_time": "2026-07-18T10:26:50.924682Z",
+        "duration_seconds": 0.07033059999230318,
+        "status": "success",
+        "rows_affected": 12,
+        "sql_hash": "sha256:6db8fe8d5af80271d3c5e30a779a260c7ba232772e12fbcaf7cacee4c49dfe1f",
+        "error_message": null
+      },
+      {
+        "table": "dim_insurance",
+        "stage": "read",
+        "start_time": "2026-07-18T10:26:50.925574Z",
+        "end_time": "2026-07-18T10:26:50.995061Z",
+        "duration_seconds": 0.0694898999936413,
+        "status": "success",
+        "rows_affected": 6,
+        "sql_hash": "sha256:e33e8c4c15894088e4d78d07b05d0795f123513dffa4723adc554d73e9e08467",
+        "error_message": null
+      },
+      {
+        "table": "dim_insurance",
+        "stage": "process",
+        "start_time": "2026-07-18T10:26:50.995896Z",
+        "end_time": "2026-07-18T10:26:51.030341Z",
+        "duration_seconds": 0.03444610000588,
+        "status": "success",
+        "rows_affected": 1,
+        "sql_hash": "sha256:bd276d657cc71965f4d9c1a527b9e06aaec7b5c64d2a3e1a42270dddf1138cc1",
+        "error_message": null
+      },
+      {
+        "table": "dim_insurance",
+        "stage": "write",
+        "start_time": "2026-07-18T10:26:51.031176Z",
+        "end_time": "2026-07-18T10:26:51.103679Z",
+        "duration_seconds": 0.07252800000424031,
+        "status": "success",
+        "rows_affected": 6,
+        "sql_hash": "sha256:a9d72db362e757757848f7d9b79893750b25e8cc15d8baabaa3e113a0a315086",
+        "error_message": null
+      },
+      {
+        "table": "fct_appointments",
+        "stage": "read",
+        "start_time": "2026-07-18T10:26:51.104843Z",
+        "end_time": "2026-07-18T10:26:51.169693Z",
+        "duration_seconds": 0.0648568000033265,
+        "status": "success",
+        "rows_affected": 15,
+        "sql_hash": "sha256:c5299a2201ad54de40324fd3c175509073664372270f482b5989c70c13aa5938",
+        "error_message": null
+      },
+      {
+        "table": "fct_appointments",
+        "stage": "process",
+        "start_time": "2026-07-18T10:26:51.170589Z",
+        "end_time": "2026-07-18T10:26:51.201174Z",
+        "duration_seconds": 0.030588900001021102,
+        "status": "success",
+        "rows_affected": 1,
+        "sql_hash": "sha256:66f9d4d7383dfdf02e7aa7eb23dce09bd57e2e3dfb1b4c79afc13f384211234f",
+        "error_message": null
+      },
+      {
+        "table": "fct_appointments",
+        "stage": "write",
+        "start_time": "2026-07-18T10:26:51.202094Z",
+        "end_time": "2026-07-18T10:26:51.373673Z",
+        "duration_seconds": 0.1715847000014037,
+        "status": "success",
+        "rows_affected": 15,
+        "sql_hash": "sha256:c0a0c0c1f40556e76911de326ba43981d86078f65d7d5c8df3de01d4f7d2417e",
+        "error_message": null
+      }
+    ]
+  },
+  "validation": {
+    "source": "output/metadata/validate/validation_report.json",
+    "validated_at": "2026-07-18T10:36:18.128111Z",
+    "status": "WARN",
+    "summary": {
+      "check_count": 223,
+      "status_counts": {
+        "PASS": 222,
+        "WARN": 1
+      }
+    },
+    "checks": [
+      {
+        "id": "G-artifact-dim_doctors-read",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_doctors\\read.sqlx exists"
+      },
+      {
+        "id": "G-artifact-dim_doctors-process",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_doctors\\process.sqlx exists"
+      },
+      {
+        "id": "G-artifact-dim_doctors-write",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_doctors\\write.sqlx exists"
+      },
+      {
+        "id": "G-buildspec-dim_doctors",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\dim_doctors.buildspec.json exists"
+      },
+      {
+        "id": "G-artifact-dim_facilities-read",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_facilities\\read.sqlx exists"
+      },
+      {
+        "id": "G-artifact-dim_facilities-process",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_facilities\\process.sqlx exists"
+      },
+      {
+        "id": "G-artifact-dim_facilities-write",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_facilities\\write.sqlx exists"
+      },
+      {
+        "id": "G-buildspec-dim_facilities",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\dim_facilities.buildspec.json exists"
+      },
+      {
+        "id": "G-artifact-dim_insurance-read",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_insurance\\read.sqlx exists"
+      },
+      {
+        "id": "G-artifact-dim_insurance-process",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_insurance\\process.sqlx exists"
+      },
+      {
+        "id": "G-artifact-dim_insurance-write",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_insurance\\write.sqlx exists"
+      },
+      {
+        "id": "G-buildspec-dim_insurance",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\dim_insurance.buildspec.json exists"
+      },
+      {
+        "id": "G-artifact-dim_patients-read",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_patients\\read.sqlx exists"
+      },
+      {
+        "id": "G-artifact-dim_patients-process",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_patients\\process.sqlx exists"
+      },
+      {
+        "id": "G-artifact-dim_patients-write",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\dim_patients\\write.sqlx exists"
+      },
+      {
+        "id": "G-buildspec-dim_patients",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\dim_patients.buildspec.json exists"
+      },
+      {
+        "id": "G-artifact-fct_appointments-read",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\fct_appointments\\read.sqlx exists"
+      },
+      {
+        "id": "G-artifact-fct_appointments-process",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\fct_appointments\\process.sqlx exists"
+      },
+      {
+        "id": "G-artifact-fct_appointments-write",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\definitions\\fct_appointments\\write.sqlx exists"
+      },
+      {
+        "id": "G-buildspec-fct_appointments",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\fct_appointments.buildspec.json exists"
+      },
+      {
+        "id": "G-schema-dim_doctors.buildspec",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\dim_doctors.buildspec.json valid"
+      },
+      {
+        "id": "G-schema-dim_facilities.buildspec",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\dim_facilities.buildspec.json valid"
+      },
+      {
+        "id": "G-schema-dim_insurance.buildspec",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\dim_insurance.buildspec.json valid"
+      },
+      {
+        "id": "G-schema-dim_patients.buildspec",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\dim_patients.buildspec.json valid"
+      },
+      {
+        "id": "G-schema-fct_appointments.buildspec",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "output\\metadata\\build\\fct_appointments.buildspec.json valid"
+      },
+      {
+        "id": "G-dependency-order",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "execution_plan.json order matches dependency_graph.json execution_order"
+      },
+      {
+        "id": "G-no-needs-review",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "no NEEDS_REVIEW columns"
+      },
+      {
+        "id": "G-manifest-drift",
+        "category": "generation",
+        "status": "PASS",
+        "detail": "no drift since last Generate"
+      },
+      {
+        "id": "S-source-patients.patient_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.first_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.last_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.date_of_birth",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.gender",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.email",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.phone",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.address_line1",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.city",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.state",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.pincode",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.blood_group",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.is_active",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.created_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-patients.updated_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.doctor_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.first_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.last_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.specialization",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.qualification",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.license_number",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.email",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.phone",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.years_of_experience",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.facility_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.consultation_fee",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.is_active",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.created_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-doctors.updated_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.facility_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.facility_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.facility_type",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.address_line1",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.city",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.state",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.pincode",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.phone",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.email",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.bed_count",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.accreditation",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.is_active",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.created_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-facilities.updated_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.insurance_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.patient_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.provider_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.policy_number",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.plan_type",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.coverage_amount",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.premium_amount",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.start_date",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.end_date",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.is_active",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.created_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-insurance.updated_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.appointment_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.patient_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.doctor_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.facility_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.appointment_date",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.appointment_time",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.appointment_type",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.status",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.diagnosis_code",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.diagnosis_description",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.notes",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.billing_amount",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.created_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-appointments.updated_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.medication_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.appointment_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.patient_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.doctor_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.drug_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.dosage",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.duration_days",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.prescribed_date",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.is_chronic",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.created_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-source-medications.updated_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.patient_dk",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.patient_bk",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.patient_hashdiff",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.full_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.date_of_birth",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.gender",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.email_address",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.phone_number",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.city",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.state",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.pincode",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.blood_group",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.is_active",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.effective_from",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.effective_to",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients.is_current",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_patients._loaded_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.doctor_dk",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.doctor_bk",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.doctor_hashdiff",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.full_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.specialization",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.qualification",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.license_number",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.email_address",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.phone_number",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.years_of_experience",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.consultation_fee",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.facility_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.is_active",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.effective_from",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.effective_to",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors.is_current",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_doctors._loaded_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.facility_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.facility_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.facility_type",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.city",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.state",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.pincode",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.phone_number",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.email_address",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.bed_count",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.accreditation",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities.is_active",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_facilities._loaded_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.insurance_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.patient_bk",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.provider_name",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.policy_number",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.plan_type",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.coverage_amount",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.premium_amount",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.start_date",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.end_date",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance.is_active",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-dim_insurance._loaded_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.appointment_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.patient_bk",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.doctor_bk",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.facility_id",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.appointment_date",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.appointment_time",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.appointment_type",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.status",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.diagnosis_code",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.diagnosis_description",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.billing_amount",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments.is_completed",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "S-target-fct_appointments._loaded_at",
+        "category": "schema",
+        "status": "PASS",
+        "detail": "matches live schema"
+      },
+      {
+        "id": "D-rowcount-dim_doctors",
+        "category": "data",
+        "status": "PASS",
+        "detail": "staging=8, target=8"
+      },
+      {
+        "id": "D-duplicates-dim_doctors",
+        "category": "data",
+        "status": "PASS",
+        "detail": "(doctor_dk) unique"
+      },
+      {
+        "id": "D-notnull-dim_doctors.doctor_dk",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_doctors.doctor_bk",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_doctors.doctor_hashdiff",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_doctors.effective_from",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_doctors.is_current",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_doctors._loaded_at",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-fk-dim_doctors.facility_id",
+        "category": "data",
+        "status": "PASS",
+        "detail": "all facility_id values resolve to dim_facilities.facility_id"
+      },
+      {
+        "id": "D-udf-dim_doctors",
+        "category": "data",
+        "status": "WARN",
+        "detail": "no reliable source-PK-derived join key found in this buildspec's columns (no DIRECT passthrough and no single-argument UDF of the source primary key); skipping UDF re-invocation cross-check for this table"
+      },
+      {
+        "id": "D-rowcount-dim_facilities",
+        "category": "data",
+        "status": "PASS",
+        "detail": "staging=5, target=5"
+      },
+      {
+        "id": "D-duplicates-dim_facilities",
+        "category": "data",
+        "status": "PASS",
+        "detail": "(facility_id) unique"
+      },
+      {
+        "id": "D-notnull-dim_facilities.facility_id",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_facilities._loaded_at",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-udf-dim_facilities.phone_number",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/5 row(s) mismatch re-invoking udf_clean_phone(...)"
+      },
+      {
+        "id": "D-udf-dim_facilities.email_address",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/5 row(s) mismatch re-invoking udf_clean_email(...)"
+      },
+      {
+        "id": "D-udf-dim_facilities.is_active",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/5 row(s) mismatch re-invoking udf_flag_to_boolean(...)"
+      },
+      {
+        "id": "D-rowcount-dim_insurance",
+        "category": "data",
+        "status": "PASS",
+        "detail": "staging=6, target=6"
+      },
+      {
+        "id": "D-duplicates-dim_insurance",
+        "category": "data",
+        "status": "PASS",
+        "detail": "(insurance_id) unique"
+      },
+      {
+        "id": "D-notnull-dim_insurance.insurance_id",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_insurance._loaded_at",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-udf-dim_insurance.start_date",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/6 row(s) mismatch re-invoking udf_parse_date(...)"
+      },
+      {
+        "id": "D-udf-dim_insurance.end_date",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/6 row(s) mismatch re-invoking udf_parse_date(...)"
+      },
+      {
+        "id": "D-udf-dim_insurance.is_active",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/6 row(s) mismatch re-invoking udf_flag_to_boolean(...)"
+      },
+      {
+        "id": "D-rowcount-dim_patients",
+        "category": "data",
+        "status": "PASS",
+        "detail": "staging=12, target=12"
+      },
+      {
+        "id": "D-duplicates-dim_patients",
+        "category": "data",
+        "status": "PASS",
+        "detail": "(patient_dk) unique"
+      },
+      {
+        "id": "D-notnull-dim_patients.patient_dk",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_patients.patient_bk",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_patients.patient_hashdiff",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_patients.effective_from",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_patients.is_current",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-dim_patients._loaded_at",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-udf-dim_patients.patient_bk",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/12 row(s) mismatch re-invoking udf_calculate_patient_bk(...)"
+      },
+      {
+        "id": "D-udf-dim_patients.full_name",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/12 row(s) mismatch re-invoking udf_full_name(...)"
+      },
+      {
+        "id": "D-udf-dim_patients.date_of_birth",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/12 row(s) mismatch re-invoking udf_parse_date(...)"
+      },
+      {
+        "id": "D-udf-dim_patients.email_address",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/12 row(s) mismatch re-invoking udf_clean_email(...)"
+      },
+      {
+        "id": "D-udf-dim_patients.phone_number",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/12 row(s) mismatch re-invoking udf_clean_phone(...)"
+      },
+      {
+        "id": "D-udf-dim_patients.is_active",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/12 row(s) mismatch re-invoking udf_flag_to_boolean(...)"
+      },
+      {
+        "id": "D-rowcount-fct_appointments",
+        "category": "data",
+        "status": "PASS",
+        "detail": "staging=15, target=15"
+      },
+      {
+        "id": "D-duplicates-fct_appointments",
+        "category": "data",
+        "status": "PASS",
+        "detail": "(appointment_id) unique"
+      },
+      {
+        "id": "D-notnull-fct_appointments.appointment_id",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-notnull-fct_appointments._loaded_at",
+        "category": "data",
+        "status": "PASS",
+        "detail": "no NULLs"
+      },
+      {
+        "id": "D-fk-fct_appointments.facility_id",
+        "category": "data",
+        "status": "PASS",
+        "detail": "all facility_id values resolve to dim_facilities.facility_id"
+      },
+      {
+        "id": "D-udf-fct_appointments.appointment_date",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/15 row(s) mismatch re-invoking udf_parse_date(...)"
+      },
+      {
+        "id": "D-udf-fct_appointments.appointment_time",
+        "category": "data",
+        "status": "PASS",
+        "detail": "0/15 row(s) mismatch re-invoking udf_parse_time(...)"
+      }
+    ]
+  }
 }
