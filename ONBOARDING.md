@@ -24,7 +24,15 @@ is `cd`'d into `STTM-Auto` and looks correct.
 - **PostgreSQL** (developed and verified against 17). It needs to be reachable
   and you need a role with permission to create/drop databases (a superuser is
   simplest for local development).
-- Python packages:
+- Python packages, installed into a venv (never system-wide) — run this once:
+  ```
+  python tool/setup_env.py
+  ```
+  It creates `./venv` if one doesn't exist, installs `engine/requirements.txt`
+  and `.claude/skills/sqlx-etl-generator/scripts/requirements.txt` (plus
+  `pytest`) into it, and — if Node is on your `PATH` — also runs the one-time
+  `npm install -g envmcp` step from §2 below. Safe to re-run any time (skips
+  what's already installed). Doing it by hand instead works identically:
   ```
   pip install -r engine/requirements.txt
   pip install -r .claude/skills/sqlx-etl-generator/scripts/requirements.txt
@@ -54,8 +62,11 @@ in order, from:
 up for: every command that touches Postgres (`/seed`, `/execute`,
 `/validate`, `/start-sttm`) auto-loads it via `python-dotenv` before doing
 anything else (`load_dotenv()` — never overwrites a variable already set in
-your actual shell). Create it yourself:
+your actual shell). Copy the tracked template and fill in your own value:
 
+```
+cp .env.example .env
+```
 ```
 PGHOST=localhost
 PGPORT=5432
@@ -90,7 +101,8 @@ are not interchangeable:
 
 - **`.env`** — read by the Python application (`engine/`) directly, via
   `python-dotenv`. `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`.
-- **`.env.mcp`** — read by `envmcp` for the MCP server only. Holds a single
+- **`.env.mcp`** — read by `envmcp` for the MCP server only. Copy the tracked
+  template (`cp .env.mcp.example .env.mcp`) and fill in a single
   `DATABASE_URL`:
   ```
   DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
@@ -98,7 +110,9 @@ are not interchangeable:
 
 Before using the Postgres MCP server for the first time, install `envmcp`
 globally (one-time — not a per-project dependency, so there's no
-`package.json`/`npm install` step in this repository itself):
+`package.json`/`npm install` step in this repository itself). `python
+tool/setup_env.py` (§1) already does this for you if Node is on your `PATH`;
+by hand it's:
 
 ```
 npm install -g envmcp
@@ -187,9 +201,31 @@ row counts and check-by-check status, not just a single pass/fail line.
   slash command's own instructions ask for a sanity check first, but you are
   the actual safeguard.
 
+## 7. If you're working a GitHub execution ticket
+
+Everything above is the generator/engine cycle in isolation. In practice
+that cycle usually runs inside a larger loop, driven by a GitHub issue:
+
+```
+/start-ticket <issue-number>    # branch + input/ ready
+  ↓
+(sections 3-4 above: the actual pipeline run)
+  ↓
+/finish-ticket <issue-number>   # durable event log, from real telemetry
+  ↓
+/raise-pr <issue-number>        # asks gh-command vs. GitHub UI
+```
+
+See [`WORKFLOW.md`](WORKFLOW.md) for the full day-to-day practice (branch
+naming, syncing with `main`, the recovery playbook for common mistakes) and
+[`CLAUDE.md`](CLAUDE.md) for the hard rules this all operates under.
+
 ## Where to go next
 
+- [`WORKFLOW.md`](WORKFLOW.md) — day-to-day git/branching practice
+- [`CLAUDE.md`](CLAUDE.md) — hard rules every Claude Code session follows
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — the full design rationale (ADR-001)
+- [`docs/README.md`](docs/README.md) — the session/event_log naming convention
 - [`engine/README.md`](engine/README.md) — how the execution engine works
 - [`.claude/skills/sqlx-etl-generator/docs/README.md`](.claude/skills/sqlx-etl-generator/docs/README.md) — the generator's own quickstart
 - [`.claude/skills/sqlx-etl-generator/docs/ASSUMPTIONS.md`](.claude/skills/sqlx-etl-generator/docs/ASSUMPTIONS.md) — implementation decisions the ADR left open

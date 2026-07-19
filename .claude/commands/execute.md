@@ -7,7 +7,12 @@ Run the generated pipeline for real, with no manual step-by-step confirmation
 `plans/execute.md` — see `engine/README.md` "Automating Execute" for why that's a
 deliberate, anticipated extension, not a bypass of it).
 
-Gate check first: read `output/metadata/review/review_report.json` if it exists.
+First, run `python tool/check_setup.py`. If it reports `[SETUP INCOMPLETE]`,
+relay what it printed, tell the user to run `/setup` (and configure `.env`
+from `.env.example` if that's what's flagged), and stop -- this touches a
+real database, so don't proceed on an unconfirmed environment.
+
+Gate check next: read `output/metadata/review/review_report.json` if it exists.
 - `status: "FAIL"` — tell the user why, and get explicit confirmation before
   proceeding.
 - `status: "WARN"` — mention it once, then proceed.

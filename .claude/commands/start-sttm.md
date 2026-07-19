@@ -2,7 +2,18 @@
 description: Read-only project health check -- inspects input/output/database state and recommends the next command. Never generates, executes, or modifies anything.
 ---
 
-Run exactly two commands, nothing else:
+First, run the pre-flight check:
+
+```
+python tool/check_setup.py
+```
+
+If it reports `[SETUP INCOMPLETE]`, relay exactly what it printed, tell the
+user to run `/setup` (and, if it flagged missing connection config, to copy
+`.env.example` to `.env` and fill in their real values), and stop — none of
+what follows will behave sensibly without this.
+
+Otherwise, run exactly two commands, nothing else:
 
 ```
 python .claude/skills/sqlx-etl-generator/scripts/check_input.py

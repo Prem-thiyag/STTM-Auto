@@ -2,7 +2,11 @@
 description: Final quality gate -- validate STTM/metadata/SQL against live source and target schema and data. Produces a PASS/FAIL report.
 ---
 
-Run the project's live validator:
+First, run `python tool/check_setup.py`. If it reports `[SETUP INCOMPLETE]`,
+relay what it printed, tell the user to run `/setup` (and configure `.env`
+from `.env.example` if that's what's flagged), and stop.
+
+Otherwise, run the project's live validator:
 
 ```
 python -m engine.validate output --intermediate-schema staging

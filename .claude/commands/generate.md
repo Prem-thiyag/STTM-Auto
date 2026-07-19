@@ -9,7 +9,11 @@ Target Schema, the STTM workbook, User Defined Functions, Folder Hierarchy) into
 cleanup manifest, project manifest), and `bootstrap/` (DDL, FDW bridges, UDFs, reset
 scripts).
 
-Use the existing `sqlx-etl-generator` skill's Generate capability
+First, run `python tool/check_setup.py`. If it reports `[SETUP INCOMPLETE]`,
+relay what it printed, tell the user to run `/setup` (and configure `.env`
+from `.env.example` if that's what's flagged), and stop.
+
+Otherwise, use the existing `sqlx-etl-generator` skill's Generate capability
 (`.claude/skills/sqlx-etl-generator/plans/generate.md`) to do this — it already
 implements the full pipeline; do not reimplement or bypass any part of it. `output/`
 does not need to exist beforehand and is always fully replaced, never merged with a
