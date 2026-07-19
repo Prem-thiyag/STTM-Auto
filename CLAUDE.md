@@ -55,4 +55,4 @@ Don't default to either option without asking.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the generator's design (ADR-001).
 - [ONBOARDING.md](ONBOARDING.md) — first-time setup.
 - [WORKFLOW.md](WORKFLOW.md) — day-to-day git/branching practice for the two
-  of you (once written).
+  of you.
