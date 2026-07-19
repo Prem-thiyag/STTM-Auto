@@ -1,0 +1,43 @@
+{
+  "target_table": "DIM_CUSTOMER",
+  "target_database": "target_db",
+  "target_schema": "warehouse",
+  "load_strategy": "full_load",
+  "source_tables": [
+    { "database": "source_db", "table": "CUSTOMER" }
+  ],
+  "staging_table": "stg_dim_customer",
+  "columns": [
+    {
+      "target_column": "customer_key",
+      "type": "integer",
+      "source": { "table": "CUSTOMER", "column": "customer_id" },
+      "transformation": "DIRECT",
+      "expression": null,
+      "udf": null,
+      "generator": null
+    },
+    {
+      "target_column": "full_name",
+      "type": "varchar(200)",
+      "source": { "table": "CUSTOMER", "column": ["first_name", "last_name"] },
+      "transformation": "UDF",
+      "expression": null,
+      "udf": "fn_full_name",
+      "generator": null
+    },
+    {
+      "target_column": "status",
+      "type": "varchar(20)",
+      "source": { "table": "CUSTOMER", "column": "status" },
+      "transformation": "DIRECT",
+      "expression": null,
+      "udf": null,
+      "generator": null
+    }
+  ],
+  "joins": [],
+  "filters": [],
+  "grain": "one row per customer",
+  "mapping_refs": ["M001", "M002", "M003"]
+}
